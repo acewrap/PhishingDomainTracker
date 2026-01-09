@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <h2>Add New Domain</h2>
+        <form method="POST">
+            <div class="mb-3">
+                <label for="domain_name" class="form-label">Domain Name</label>
+                <input type="text" class="form-control" id="domain_name" name="domain_name" required placeholder="example.com">
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="auto_enrich" name="auto_enrich" checked>
+                <label class="form-check-label" for="auto_enrich">Auto-enrich with APIs (if keys set)</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Domain</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h2>{{ domain.domain_name }}</h2>
+        <p class="text-muted">Entered on: {{ domain.date_entered.strftime('%Y-%m-%d %H:%M') }}</p>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                Details
+                <form action="{{ url_for('enrich_domain_route', id=domain.id) }}" method="POST" class="float-end">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Enrich / Refresh</button>
+                </form>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Registrar:</strong> {{ domain.registrar or 'Unknown' }}</p>
+                        <p><strong>Status:</strong> {{ domain.registration_status or 'Unknown' }}</p>
+                        <p><strong>IP Address:</strong> {{ domain.ip_address or 'Unknown' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Is Active:</strong> {{ domain.is_active }}</p>
+                        <p><strong>Has Login Page:</strong> {{ domain.has_login_page }}</p>
+                        <p><strong>Urlscan UUID:</strong> {{ domain.urlscan_uuid or 'None' }}</p>
+                    </div>
+                </div>
+                
+                {% if domain.screenshot_link %}
+                    <div class="mt-3">
+                        <strong>Screenshot / Report Link:</strong> <a href="{{ domain.screenshot_link }}" target="_blank">{{ domain.screenshot_link }}</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Manual Updates</div>
+            <div class="card-body">
+                <form action="{{ url_for('update_domain', id=domain.id) }}" method="POST">
+                    <div class="mb-3">
+                        <label for="action_taken" class="form-label">Action Taken</label>
+                        <textarea class="form-control" id="action_taken" name="action_taken" rows="3">{{ domain.action_taken or '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="date_remediated" class="form-label">Date Remediated</label>
+                        <input type="date" class="form-control" id="date_remediated" name="date_remediated" value="{{ domain.date_remediated.strftime('%Y-%m-%d') if domain.date_remediated else '' }}">
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if domain.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">Website Active?</label>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="has_login_page" name="has_login_page" {% if domain.has_login_page %}checked{% endif %}>
+                        <label class="form-check-label" for="has_login_page">Has Login Page?</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Update Record</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

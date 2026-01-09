@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Tracked Domains</h2>
+    <a href="{{ url_for('add_domain') }}" class="btn btn-primary">Add Domain</a>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Domain</th>
+            <th>Date Entered</th>
+            <th>Registration</th>
+            <th>Active?</th>
+            <th>Login?</th>
+            <th>Remediated?</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for domain in domains %}
+        <tr>
+            <td><a href="{{ url_for('domain_details', id=domain.id) }}">{{ domain.domain_name }}</a></td>
+            <td>{{ domain.date_entered.strftime('%Y-%m-%d') }}</td>
+            <td>{{ domain.registration_status or '-' }}</td>
+            <td>
+                {% if domain.is_active %}
+                    <span class="badge bg-danger">Yes</span>
+                {% else %}
+                    <span class="badge bg-secondary">No</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if domain.has_login_page %}
+                    <span class="badge bg-warning text-dark">Yes</span>
+                {% else %}
+                    <span class="badge bg-secondary">No</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if domain.date_remediated %}
+                    {{ domain.date_remediated.strftime('%Y-%m-%d') }}
+                {% else %}
+                    <span class="badge bg-info">Pending</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('domain_details', id=domain.id) }}" class="btn btn-sm btn-outline-secondary">Details</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7" class="text-center">No domains tracked yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
