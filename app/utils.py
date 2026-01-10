@@ -1,14 +1,67 @@
 import os
 import requests
 import logging
+import urllib3
 from datetime import datetime
+from bs4 import BeautifulSoup
+import re
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
+# Suppress InsecureRequestWarning
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger(__name__)
 
 WHOISXML_API_KEY = os.environ.get('WHOISXML_API_KEY')
 URLSCAN_API_KEY = os.environ.get('URLSCAN_API_KEY')
+
+def analyze_page_content(html_content):
+    """
+    Analyzes the HTML content to check for login page indicators.
+    Returns True if indicators are found, False otherwise.
+    """
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Check for <input type="password">
+        if soup.find('input', {'type': 'password'}):
+            logger.info("Found password input field.")
+            return True
+
+        # Check for specific keywords (case-insensitive)
+        text_content = soup.get_text()
+        keywords = ["uAPI", "password", "username", "PCC", "HAP", "host access profile"]
+
+        for keyword in keywords:
+            if re.search(r'\b' + re.escape(keyword) + r'\b', text_content, re.IGNORECASE):
+                logger.info(f"Found keyword: {keyword}")
+                return True
+
+        return False
+    except Exception as e:
+        logger.error(f"Error parsing HTML content: {e}")
+        return False
+
+def fetch_and_check_domain(domain_name):
+    """
+    Fetches the domain content (trying https then http) and checks for login indicators.
+    Returns True if login page detected, False otherwise.
+    """
+    protocols = ['https://', 'http://']
+
+    for protocol in protocols:
+        url = f"{protocol}{domain_name}"
+        try:
+            logger.info(f"Fetching {url}...")
+            response = requests.get(url, timeout=10, verify=False) # verify=False to handle self-signed certs potentially
+            if response.status_code == 200:
+                if analyze_page_content(response.text):
+                    return True
+        except requests.RequestException as e:
+            logger.warning(f"Failed to fetch {url}: {e}")
+            continue
+
+    return False
 
 def enrich_domain(domain_obj):
     """
@@ -98,4 +151,12 @@ def enrich_domain(domain_obj):
     else:
         logger.warning("URLSCAN_API_KEY not set. Skipping Urlscan enrichment.")
         
+    # 3. Check for login page indicators
+    if fetch_and_check_domain(domain_obj.domain_name):
+        logger.info(f"Login page detected for {domain_obj.domain_name}")
+        domain_obj.has_login_page = True
+    else:
+        logger.info(f"No login page detected for {domain_obj.domain_name}")
+        domain_obj.has_login_page = False
+
     return domain_obj
