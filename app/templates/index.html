@@ -1,82 +1,170 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Tracked Domains</h2>
-    <div>
-        <a href="{{ url_for('add_domain') }}" class="btn btn-primary me-2">Add Domain</a>
-        <button type="submit" form="bulk-delete-form" class="btn btn-info me-2" formaction="{{ url_for('enrich_domains') }}">Enrich/Refresh</button>
-        <button type="submit" form="bulk-delete-form" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete selected domains?')">Delete Selected</button>
+<div class="row">
+    <!-- Sidebar / Filters -->
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header">
+                Filter Statuses
+            </div>
+            <div class="card-body">
+                <div class="form-check">
+                    <input class="form-check-input status-filter" type="checkbox" value="red" id="filterRed" checked>
+                    <label class="form-check-label" for="filterRed">Red (Active & Login)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input status-filter" type="checkbox" value="orange" id="filterOrange" checked>
+                    <label class="form-check-label" for="filterOrange">Orange (MX Record)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input status-filter" type="checkbox" value="yellow" id="filterYellow" checked>
+                    <label class="form-check-label" for="filterYellow">Yellow (Monitoring)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input status-filter" type="checkbox" value="purple" id="filterPurple" checked>
+                    <label class="form-check-label" for="filterPurple">Purple (Takedown Req)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input status-filter" type="checkbox" value="grey" id="filterGrey" checked>
+                    <label class="form-check-label" for="filterGrey">Grey (Remediated)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input status-filter" type="checkbox" value="blue" id="filterBlue" checked>
+                    <label class="form-check-label" for="filterBlue">Blue (Internal/Pentest)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input status-filter" type="checkbox" value="green" id="filterGreen">
+                    <label class="form-check-label" for="filterGreen">Green (Whitelisted)</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="col-md-9">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Tracked Domains</h2>
+            <div>
+                <a href="{{ url_for('add_domain') }}" class="btn btn-primary me-2">Add Domain</a>
+                <button type="submit" form="bulk-delete-form" class="btn btn-info me-2" formaction="{{ url_for('enrich_domains') }}">Enrich/Refresh</button>
+                <button type="submit" form="bulk-delete-form" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete selected domains?')">Delete Selected</button>
+            </div>
+        </div>
+
+        <form id="bulk-delete-form" action="{{ url_for('delete_domains') }}" method="POST">
+            <table class="table table-striped" id="domainsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="select-all"></th>
+                        <th>Domain</th>
+                        <th>Date Entered</th>
+                        <th>Registration</th>
+                        <th>Active?</th>
+                        <th>Login?</th>
+                        <th>Remediated?</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for domain in domains %}
+                    <tr class="table-{{ domain.threat_status|lower }} domain-row">
+                        <td><input type="checkbox" name="domain_ids" value="{{ domain.id }}" class="domain-checkbox"></td>
+                        <td><a href="{{ url_for('domain_details', id=domain.id) }}">{{ domain.domain_name }}</a></td>
+                        <td>{{ domain.date_entered.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% if domain.registration_date %}
+                                {{ domain.registration_date.strftime('%Y-%m-%d') }}
+                            {% else %}
+                                Unknown/Unavailable
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if domain.is_active %}
+                                <span class="badge bg-danger">Yes</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if domain.has_login_page %}
+                                <span class="badge bg-warning text-dark">Yes</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if domain.date_remediated %}
+                                {{ domain.date_remediated.strftime('%Y-%m-%d') }}
+                            {% elif domain.manual_status == 'Takedown Requested' %}
+                                <span class="badge bg-info">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('domain_details', id=domain.id) }}" class="btn btn-sm btn-outline-secondary">Details</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center">No domains tracked yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
     </div>
 </div>
 
-<form id="bulk-delete-form" action="{{ url_for('delete_domains') }}" method="POST">
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th style="width: 40px;"><input type="checkbox" id="select-all"></th>
-                <th>Domain</th>
-                <th>Date Entered</th>
-                <th>Registration</th>
-                <th>Active?</th>
-                <th>Login?</th>
-                <th>Remediated?</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for domain in domains %}
-            <tr class="table-{{ domain.threat_status|lower }}">
-                <td><input type="checkbox" name="domain_ids" value="{{ domain.id }}" class="domain-checkbox"></td>
-                <td><a href="{{ url_for('domain_details', id=domain.id) }}">{{ domain.domain_name }}</a></td>
-                <td>{{ domain.date_entered.strftime('%Y-%m-%d') }}</td>
-                <td>
-                    {% if domain.registration_date %}
-                        {{ domain.registration_date.strftime('%Y-%m-%d') }}
-                    {% else %}
-                        Unknown/Unavailable
-                    {% endif %}
-                </td>
-                <td>
-                    {% if domain.is_active %}
-                        <span class="badge bg-danger">Yes</span>
-                    {% else %}
-                        <span class="badge bg-secondary">No</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if domain.has_login_page %}
-                        <span class="badge bg-warning text-dark">Yes</span>
-                    {% else %}
-                        <span class="badge bg-secondary">No</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if domain.date_remediated %}
-                        {{ domain.date_remediated.strftime('%Y-%m-%d') }}
-                    {% elif domain.manual_status == 'Takedown Requested' %}
-                        <span class="badge bg-info">Pending</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="{{ url_for('domain_details', id=domain.id) }}" class="btn btn-sm btn-outline-secondary">Details</a>
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="8" class="text-center">No domains tracked yet.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</form>
-
 <script>
-    document.getElementById('select-all').addEventListener('change', function() {
-        var checkboxes = document.querySelectorAll('.domain-checkbox');
-        for (var checkbox of checkboxes) {
-            checkbox.checked = this.checked;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Bulk selection logic
+        const selectAll = document.getElementById('select-all');
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                var checkboxes = document.querySelectorAll('.domain-checkbox');
+                // Only select visible checkboxes
+                for (var checkbox of checkboxes) {
+                    if (checkbox.closest('tr').style.display !== 'none') {
+                        checkbox.checked = this.checked;
+                    }
+                }
+            });
         }
+
+        // Filter logic
+        const filters = document.querySelectorAll('.status-filter');
+        const rows = document.querySelectorAll('.domain-row');
+
+        function filterDomains() {
+            const checkedStatuses = Array.from(filters)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value); // e.g. ['red', 'orange']
+
+            rows.forEach(row => {
+                // Find the status class in the row's classList
+                let show = false;
+                for (let status of checkedStatuses) {
+                    if (row.classList.contains('table-' + status)) {
+                        show = true;
+                        break;
+                    }
+                }
+
+                if (show) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Attach event listeners
+        filters.forEach(cb => {
+            cb.addEventListener('change', filterDomains);
+        });
+
+        // Initial run
+        filterDomains();
     });
 </script>
 {% endblock %}
