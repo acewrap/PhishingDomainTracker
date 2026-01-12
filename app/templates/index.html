@@ -54,7 +54,7 @@
                 <td>
                     {% if domain.date_remediated %}
                         {{ domain.date_remediated.strftime('%Y-%m-%d') }}
-                    {% else %}
+                    {% elif domain.manual_status == 'Takedown Requested' %}
                         <span class="badge bg-info">Pending</span>
                     {% endif %}
                 </td>
