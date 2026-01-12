@@ -3,6 +3,9 @@ from app.models import db, PhishingDomain
 from app.utils import enrich_domain
 from datetime import datetime
 import os
+import csv
+import io
+from flask import Response
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URI', 'sqlite:///domains.db')
@@ -88,6 +91,70 @@ def delete_domains():
     else:
         flash('No domains selected for deletion.', 'warning')
     return redirect(url_for('index'))
+
+@app.route('/reports', methods=['GET', 'POST'])
+def reports():
+    if request.method == 'POST':
+        start_date_str = request.form.get('start_date')
+        end_date_str = request.form.get('end_date')
+        selected_statuses = request.form.getlist('statuses')
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        except ValueError:
+            flash('Invalid date format.', 'danger')
+            return redirect(url_for('reports'))
+
+        # Query domains within the date range
+        domains = PhishingDomain.query.filter(
+            PhishingDomain.date_entered >= start_date,
+            PhishingDomain.date_entered <= end_date
+        ).all()
+
+        # Filter by computed threat_status
+        filtered_domains = [d for d in domains if d.threat_status in selected_statuses]
+
+        # Generate CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Headers
+        headers = [
+            'ID', 'Domain Name', 'Registration Status', 'Is Active',
+            'Has Login Page', 'Date Entered', 'Action Taken',
+            'Date Remediated', 'Screenshot Link', 'Registrar',
+            'IP Address', 'Urlscan UUID', 'Has MX Record',
+            'Manual Status', 'Threat Status'
+        ]
+        writer.writerow(headers)
+
+        for d in filtered_domains:
+            writer.writerow([
+                d.id,
+                d.domain_name,
+                d.registration_status,
+                d.is_active,
+                d.has_login_page,
+                d.date_entered.isoformat() if d.date_entered else '',
+                d.action_taken,
+                d.date_remediated.isoformat() if d.date_remediated else '',
+                d.screenshot_link,
+                d.registrar,
+                d.ip_address,
+                d.urlscan_uuid,
+                d.has_mx_record,
+                d.manual_status,
+                d.threat_status
+            ])
+
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-disposition": "attachment; filename=report.csv"}
+        )
+
+    return render_template('reports.html')
 
 with app.app_context():
     db.create_all()

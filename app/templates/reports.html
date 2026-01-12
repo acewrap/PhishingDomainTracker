@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Generate Report</h2>
+<form method="POST" action="{{ url_for('reports') }}">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="start_date" class="form-label">Start Date</label>
+            <input type="date" class="form-control" id="start_date" name="start_date" required>
+        </div>
+        <div class="col-md-6">
+            <label for="end_date" class="form-label">End Date</label>
+            <input type="date" class="form-control" id="end_date" name="end_date" required>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Include Statuses:</label>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="statuses" value="Red" id="statusRed" checked>
+            <label class="form-check-label" for="statusRed">Red (Active & Login)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="statuses" value="Orange" id="statusOrange" checked>
+            <label class="form-check-label" for="statusOrange">Orange (MX Record)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="statuses" value="Yellow" id="statusYellow" checked>
+            <label class="form-check-label" for="statusYellow">Yellow (Monitoring)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="statuses" value="Purple" id="statusPurple" checked>
+            <label class="form-check-label" for="statusPurple">Purple (Takedown Requested)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="statuses" value="Grey" id="statusGrey" checked>
+            <label class="form-check-label" for="statusGrey">Grey (Remediated)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="statuses" value="Blue" id="statusBlue" checked>
+            <label class="form-check-label" for="statusBlue">Blue (Internal/Pentest)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="statuses" value="Green" id="statusGreen" checked>
+            <label class="form-check-label" for="statusGreen">Green (Whitelisted)</label>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Generate CSV Report</button>
+</form>
+{% endblock %}
