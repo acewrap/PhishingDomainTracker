@@ -1,5 +1,6 @@
 import unittest
-from app.app import app, db, PhishingDomain
+from app.app import app, db, PhishingDomain, User
+from app.extensions import bcrypt
 from datetime import datetime, timedelta
 
 class ReportsTestCase(unittest.TestCase):
@@ -10,6 +11,16 @@ class ReportsTestCase(unittest.TestCase):
         self.app = app.test_client()
         with app.app_context():
             db.create_all()
+            # Create user and login
+            hashed = bcrypt.generate_password_hash('testuser').decode('utf-8')
+            user = User(username='testuser', password_hash=hashed)
+            db.session.add(user)
+            db.session.commit()
+
+        self.app.post('/login', data=dict(
+            username='testuser',
+            password='testuser'
+        ), follow_redirects=True)
 
     def tearDown(self):
         with app.app_context():

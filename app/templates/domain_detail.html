@@ -10,6 +10,7 @@
             <div class="card-header">
                 Details
                 <form action="{{ url_for('enrich_domain_route', id=domain.id) }}" method="POST" class="float-end">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <button type="submit" class="btn btn-sm btn-outline-primary">Enrich / Refresh</button>
                 </form>
             </div>
@@ -39,6 +40,7 @@
             <div class="card-header">Manual Updates</div>
             <div class="card-body">
                 <form action="{{ url_for('update_domain', id=domain.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="mb-3">
                         <label for="action_taken" class="form-label">Action Taken</label>
                         <textarea class="form-control" id="action_taken" name="action_taken" rows="3">{{ domain.action_taken or '' }}</textarea>
