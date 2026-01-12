@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>User Profile</h2>
+        <p><strong>Username:</strong> {{ user.username }}</p>
+
+        <hr>
+
+        <h3>API Key Management</h3>
+        <p>You can use this API key to programmatically access the application.</p>
+
+        {% if api_key %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <p><strong>Access Key:</strong> <code>{{ api_key.access_key }}</code></p>
+                <p><strong>Secret Key:</strong>
+                    {% if new_secret %}
+                        <div class="alert alert-success">
+                            <strong>New Secret Generated:</strong> <code>{{ new_secret }}</code>
+                            <br>
+                            <small>Please copy this now. It will not be shown again.</small>
+                        </div>
+                    {% else %}
+                        <span class="text-muted">Hidden (Hashed)</span>
+                    {% endif %}
+                </p>
+                <p><small>Created: {{ api_key.created_at }}</small></p>
+            </div>
+        </div>
+        {% else %}
+            <div class="alert alert-warning">No API Key found. Generate one below.</div>
+        {% endif %}
+
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            {{ form.submit(class="btn btn-warning", onclick="return confirm('Are you sure? This will invalidate any existing API Key.');") }}
+        </form>
+
+    </div>
+</div>
+{% endblock %}

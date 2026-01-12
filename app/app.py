@@ -1,6 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from app.models import db, PhishingDomain
+from flask_login import login_required
+from werkzeug.middleware.proxy_fix import ProxyFix
+from app.extensions import db, migrate, bcrypt, login_manager
+from app.models import PhishingDomain, User
 from app.utils import enrich_domain
+from app.forms import AddDomainForm
 from datetime import datetime
 import os
 import csv
@@ -8,48 +12,86 @@ import io
 import sqlite3
 import sqlalchemy
 from flask import Response
+from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Security Configuration
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Ensure SESSION_COOKIE_SECURE is True in production (when serving over HTTPS)
+if os.environ.get('FLASK_ENV') == 'production':
+    app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URI', 'sqlite:///domains.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key')
 
 db.init_app(app)
+migrate.init_app(app, db)
+bcrypt.init_app(app)
+login_manager.init_app(app)
+login_manager.login_view = 'auth.login'
+
+from app.auth import auth
+from app.api import api_v1
+
+csrf.exempt(api_v1)
+app.register_blueprint(auth)
+app.register_blueprint(api_v1)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+@app.before_request
+def check_password_expiration():
+    from flask_login import current_user
+    if current_user.is_authenticated and current_user.password_expired:
+        if request.endpoint and request.endpoint not in ['auth.change_password', 'auth.logout', 'static']:
+            flash('Your password has expired. Please change it.', 'warning')
+            return redirect(url_for('auth.change_password'))
 
 @app.route('/')
+@login_required
 def index():
     domains = PhishingDomain.query.order_by(PhishingDomain.date_entered.desc()).all()
     return render_template('index.html', domains=domains)
 
 @app.route('/add', methods=['GET', 'POST'])
+@login_required
 def add_domain():
-    if request.method == 'POST':
-        domain_name = request.form.get('domain_name')
-        if domain_name:
-            # Check if exists
-            existing = PhishingDomain.query.filter_by(domain_name=domain_name).first()
-            if existing:
-                flash(f'Domain {domain_name} already exists.', 'warning')
-                return redirect(url_for('domain_details', id=existing.id))
-            
-            new_domain = PhishingDomain(domain_name=domain_name)
-            
-            # Optional: auto-enrich on add
-            if request.form.get('auto_enrich'):
-                 enrich_domain(new_domain)
-            
-            db.session.add(new_domain)
-            db.session.commit()
-            flash(f'Domain {domain_name} added successfully.', 'success')
-            return redirect(url_for('index'))
-    return render_template('add_domain.html')
+    form = AddDomainForm()
+    if form.validate_on_submit():
+        domain_name = form.domain_name.data
+
+        # Check if exists
+        existing = PhishingDomain.query.filter_by(domain_name=domain_name).first()
+        if existing:
+            flash(f'Domain {domain_name} already exists.', 'warning')
+            return redirect(url_for('domain_details', id=existing.id))
+
+        new_domain = PhishingDomain(domain_name=domain_name)
+
+        # Optional: auto-enrich on add
+        if form.auto_enrich.data:
+                enrich_domain(new_domain)
+
+        db.session.add(new_domain)
+        db.session.commit()
+        flash(f'Domain {domain_name} added successfully.', 'success')
+        return redirect(url_for('index'))
+    return render_template('add_domain.html', form=form)
 
 @app.route('/domain/<int:id>')
+@login_required
 def domain_details(id):
     domain = PhishingDomain.query.get_or_404(id)
     return render_template('domain_detail.html', domain=domain)
 
 @app.route('/enrich/<int:id>', methods=['POST'])
+@login_required
 def enrich_domain_route(id):
     domain = PhishingDomain.query.get_or_404(id)
     enrich_domain(domain)
@@ -58,6 +100,7 @@ def enrich_domain_route(id):
     return redirect(url_for('domain_details', id=domain.id))
 
 @app.route('/update/<int:id>', methods=['POST'])
+@login_required
 def update_domain(id):
     domain = PhishingDomain.query.get_or_404(id)
     
@@ -83,7 +126,14 @@ def update_domain(id):
     return redirect(url_for('domain_details', id=domain.id))
 
 @app.route('/enrich_domains', methods=['POST'])
+@login_required
 def enrich_domains():
+    # Manual CSRF protection for non-WTF form
+    # Or just use WTF if we update index.html to use it
+    # But since it's a simple list, we can just ensure CSRF token is present in the form
+    # and let Flask-WTF global protection handle it?
+    # Yes, CSRFProtect(app) protects all POST requests.
+    # The form in index.html must include <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     domain_ids = request.form.getlist('domain_ids')
     if domain_ids:
         domains = PhishingDomain.query.filter(PhishingDomain.id.in_(domain_ids)).all()
@@ -96,6 +146,7 @@ def enrich_domains():
     return redirect(url_for('index'))
 
 @app.route('/delete_domains', methods=['POST'])
+@login_required
 def delete_domains():
     domain_ids = request.form.getlist('domain_ids')
     if domain_ids:
@@ -108,6 +159,7 @@ def delete_domains():
     return redirect(url_for('index'))
 
 @app.route('/reports', methods=['GET', 'POST'])
+@login_required
 def reports():
     if request.method == 'POST':
         start_date_str = request.form.get('start_date')
@@ -171,60 +223,6 @@ def reports():
 
     return render_template('reports.html')
 
-def migrate_schema(app):
-    """
-    Checks for missing columns and adds them if necessary.
-    Specifically handles the 'registration_date' column.
-    """
-    with app.app_context():
-        # Only support SQLite for this simple migration
-        uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-        if not uri.startswith('sqlite:///'):
-            return
-
-        db_path = uri.replace('sqlite:///', '')
-
-        # Handle relative paths properly
-        if not os.path.isabs(db_path):
-            # If not absolute, assume relative to instance folder or app root
-            # Flask-SQLAlchemy usually resolves relative paths to app.root_path or instance_path
-            # Here we try to resolve it relative to where the script is running or app instance path
-            # But let's rely on where the file actually is.
-
-            # Try instance path first
-            potential_path = os.path.join(app.instance_path, db_path)
-            if os.path.exists(potential_path):
-                db_path = potential_path
-            else:
-                 # Fallback to current working directory or just let sqlite3 open it
-                 pass
-
-        if not os.path.exists(db_path):
-            # Database doesn't exist yet, db.create_all() handled it or will handle it
-            return
-
-        try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-
-            # Check if registration_date exists
-            cursor.execute("PRAGMA table_info(phishing_domain)")
-            columns = [info[1] for info in cursor.fetchall()]
-
-            if 'registration_date' not in columns:
-                print("Migrating database: Adding registration_date column...")
-                cursor.execute("ALTER TABLE phishing_domain ADD COLUMN registration_date DATETIME")
-                conn.commit()
-                print("Migration successful.")
-
-            conn.close()
-        except Exception as e:
-            print(f"Error during migration: {e}")
-
-with app.app_context():
-    db.create_all()
-    migrate_schema(app)
-
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_DEBUG', 'True').lower() in ['true', '1', 't']
-    app.run(debug=debug_mode, host='0.0.0.0')
+    app.run(debug=debug_mode, host='0.0.0.0', port=8080)

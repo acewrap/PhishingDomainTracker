@@ -1,7 +1,24 @@
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_login import UserMixin
+from app.extensions import db
 
-db = SQLAlchemy()
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login_at = db.Column(db.DateTime, nullable=True)
+    password_expired = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    api_keys = db.relationship('APIKey', backref='user', lazy=True)
+
+class APIKey(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    access_key = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    secret_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_used_at = db.Column(db.DateTime, nullable=True)
 
 class PhishingDomain(db.Model):
     id = db.Column(db.Integer, primary_key=True)

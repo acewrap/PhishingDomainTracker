@@ -1,16 +1,28 @@
 import unittest
 import os
-from app.app import app, db, PhishingDomain
+from app.app import app, db, PhishingDomain, User
 from app.utils import enrich_domain
+from app.extensions import bcrypt
 
 class PhishingAppTestCase(unittest.TestCase):
     def setUp(self):
         app.config['TESTING'] = True
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        app.config['WTF_CSRF_ENABLED'] = False
         self.client = app.test_client()
         
         with app.app_context():
             db.create_all()
+            # Create user and login
+            hashed = bcrypt.generate_password_hash('testuser').decode('utf-8')
+            user = User(username='testuser', password_hash=hashed)
+            db.session.add(user)
+            db.session.commit()
+
+        self.client.post('/login', data=dict(
+            username='testuser',
+            password='testuser'
+        ), follow_redirects=True)
 
     def tearDown(self):
         with app.app_context():

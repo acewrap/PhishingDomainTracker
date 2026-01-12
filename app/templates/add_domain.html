@@ -5,15 +5,19 @@
     <div class="col-md-6 offset-md-3">
         <h2>Add New Domain</h2>
         <form method="POST">
+            {{ form.hidden_tag() }}
             <div class="mb-3">
-                <label for="domain_name" class="form-label">Domain Name</label>
-                <input type="text" class="form-control" id="domain_name" name="domain_name" required placeholder="example.com">
+                {{ form.domain_name.label(class="form-label") }}
+                {{ form.domain_name(class="form-control", placeholder="example.com") }}
+                {% for error in form.domain_name.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
             </div>
             <div class="mb-3 form-check">
-                <input type="checkbox" class="form-check-input" id="auto_enrich" name="auto_enrich" checked>
-                <label class="form-check-label" for="auto_enrich">Auto-enrich with APIs (if keys set)</label>
+                {{ form.auto_enrich(class="form-check-input", checked=True) }}
+                {{ form.auto_enrich.label(class="form-check-label") }}
             </div>
-            <button type="submit" class="btn btn-primary">Add Domain</button>
+            {{ form.submit(class="btn btn-primary") }}
         </form>
     </div>
 </div>

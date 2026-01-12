@@ -31,6 +31,25 @@
                     <a class="nav-link" href="{{ url_for('reports') }}">Reports</a>
                 </li>
             </ul>
+            <ul class="navbar-nav ms-auto">
+                {% if current_user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('auth.profile') }}">Profile ({{ current_user.username }})</a>
+                </li>
+                {% if current_user.is_admin or current_user.username == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('auth.create_user') }}">Create User</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                </li>
+                {% endif %}
+            </ul>
         </div>
       </div>
     </nav>
