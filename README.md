@@ -1,6 +1,6 @@
 # Phishing Domain Tracker
 
-A secure web application to track and monitor phishing domains targeting Travelport.
+A secure web application to track and monitor phishing domains targeting your organization.
 
 ## Features
 
