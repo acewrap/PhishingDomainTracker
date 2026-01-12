@@ -115,6 +115,44 @@ def enrich_domain(domain_obj):
                 else:
                      domain_obj.registration_status = "Unknown/Available"
 
+                # Extract and parse registration date
+                created_date_str = whois_record.get('createdDate')
+                if not created_date_str:
+                    registry_data = whois_record.get('registryData')
+                    if registry_data:
+                        created_date_str = registry_data.get('createdDate')
+
+                if created_date_str:
+                    try:
+                        # WhoisXML often returns dates like "2018-06-17 11:23:51.000 UTC" or ISO format
+                        # We try to parse the first part if it looks like YYYY-MM-DD
+                        # or use datetime.fromisoformat if applicable (Python 3.7+)
+
+                        # Simple parsing strategy:
+                        # 1. Try to take the first 19 chars if it's "YYYY-MM-DD HH:MM:SS"
+                        # 2. Handle 'T' separator
+
+                        # Remove ' UTC' or other timezones for simplicity if present at the end
+                        clean_date_str = created_date_str.replace(' UTC', '').replace('Z', '')
+
+                        # Attempt to handle potential milliseconds .000
+                        if '.' in clean_date_str:
+                            clean_date_str = clean_date_str.split('.')[0]
+
+                        # Replace T with space
+                        clean_date_str = clean_date_str.replace('T', ' ')
+
+                        domain_obj.registration_date = datetime.strptime(clean_date_str, '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        try:
+                            # Fallback: try just YYYY-MM-DD
+                            domain_obj.registration_date = datetime.strptime(clean_date_str.split(' ')[0], '%Y-%m-%d')
+                        except ValueError:
+                             logger.warning(f"Could not parse createdDate: {created_date_str}")
+                             domain_obj.registration_date = None
+                else:
+                    domain_obj.registration_date = None
+
             else:
                 logger.error(f"WhoisXML API returned {response.status_code}")
         except Exception as e:
