@@ -71,6 +71,7 @@ def update_domain(id):
 
     domain.is_active = 'is_active' in request.form
     domain.has_login_page = 'has_login_page' in request.form
+    domain.manual_status = request.form.get('manual_status')
     
     db.session.commit()
     flash('Domain updated successfully.', 'success')
