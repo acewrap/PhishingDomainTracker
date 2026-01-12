@@ -80,6 +80,19 @@ def update_domain(id):
     flash('Domain updated successfully.', 'success')
     return redirect(url_for('domain_details', id=domain.id))
 
+@app.route('/enrich_domains', methods=['POST'])
+def enrich_domains():
+    domain_ids = request.form.getlist('domain_ids')
+    if domain_ids:
+        domains = PhishingDomain.query.filter(PhishingDomain.id.in_(domain_ids)).all()
+        for domain in domains:
+            enrich_domain(domain)
+        db.session.commit()
+        flash(f'Enrichment triggered for {len(domains)} domains.', 'success')
+    else:
+        flash('No domains selected for enrichment.', 'warning')
+    return redirect(url_for('index'))
+
 @app.route('/delete_domains', methods=['POST'])
 def delete_domains():
     domain_ids = request.form.getlist('domain_ids')

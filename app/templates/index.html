@@ -5,6 +5,7 @@
     <h2>Tracked Domains</h2>
     <div>
         <a href="{{ url_for('add_domain') }}" class="btn btn-primary me-2">Add Domain</a>
+        <button type="submit" form="bulk-delete-form" class="btn btn-info me-2" formaction="{{ url_for('enrich_domains') }}">Enrich/Refresh</button>
         <button type="submit" form="bulk-delete-form" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete selected domains?')">Delete Selected</button>
     </div>
 </div>
