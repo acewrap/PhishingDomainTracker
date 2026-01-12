@@ -1,6 +1,6 @@
 # Phishing Domain Tracker
 
-A web application to track and monitor phishing domains targeting Travelport.
+A secure web application to track and monitor phishing domains targeting Travelport.
 
 ## Features
 
@@ -8,32 +8,38 @@ A web application to track and monitor phishing domains targeting Travelport.
 - **Enrichment**: Automatic enrichment using WhoisXML and Urlscan.io.
 - **Monitoring**: Track active status, login pages, and screenshots.
 - **Remediation Tracking**: Log actions taken and remediation dates.
-- **Ad-hoc Updates**: Refresh data for specific domains on demand.
+- **User Authentication**: Secure login, password rotation policies, and admin user management.
+- **Programmatic API**: Secure API access using API Key & Secret.
 
-## Setup
+## Documentation
+
+For detailed instructions, please refer to the following guides:
+
+- **[Installation & Setup](INSTALLATION.md)**: How to install, configure, and run the application.
+- **[Administrator Guide](ADMINISTRATOR.md)**: Managing users and system configuration.
+- **[User Guide](USER.md)**: Using the dashboard and managing your profile/API keys.
+- **[API Documentation](API.md)**: How to use the REST API.
+
+## Quick Start
 
 1. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. Set environment variables (Optional but recommended for enrichment):
+2. Initialize the database:
    ```bash
-   export WHOISXML_API_KEY="your_key"
-   export URLSCAN_API_KEY="your_key"
+   export FLASK_APP=app/app.py
+   flask db upgrade
    ```
 
 3. Run the application:
    ```bash
-   python -m app.app
-   ```
-   Or if in the root directory and after setting PYTHONPATH:
-   ```bash
-   export PYTHONPATH=$PYTHONPATH:.
-   python app/app.py
+   flask run --host=0.0.0.0 --port=8080
    ```
 
-4. Access the dashboard at `http://localhost:5000`.
+4. Access the dashboard at `http://localhost:8080`.
+   *(Default Admin Credentials: `admin` / `admin` - Change immediately upon login)*
 
 ## API Integrations
 
