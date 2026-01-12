@@ -5,6 +5,7 @@ import urllib3
 from datetime import datetime
 from bs4 import BeautifulSoup
 import re
+import dns.resolver
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +42,23 @@ def analyze_page_content(html_content):
     except Exception as e:
         logger.error(f"Error parsing HTML content: {e}")
         return False
+
+def check_mx_record(domain_name):
+    """
+    Checks if the domain has any MX records.
+    Returns True if MX records are found, False otherwise.
+    """
+    try:
+        answers = dns.resolver.resolve(domain_name, 'MX')
+        if answers:
+            logger.info(f"MX records found for {domain_name}")
+            return True
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.exception.Timeout):
+        pass
+    except Exception as e:
+        logger.warning(f"Error checking MX records for {domain_name}: {e}")
+
+    return False
 
 def fetch_and_check_domain(domain_name):
     """
@@ -158,5 +176,11 @@ def enrich_domain(domain_obj):
     else:
         logger.info(f"No login page detected for {domain_obj.domain_name}")
         domain_obj.has_login_page = False
+
+    # 4. Check for MX records
+    if check_mx_record(domain_obj.domain_name):
+        domain_obj.has_mx_record = True
+    else:
+        domain_obj.has_mx_record = False
 
     return domain_obj

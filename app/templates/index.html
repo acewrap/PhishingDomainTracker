@@ -20,7 +20,7 @@
     </thead>
     <tbody>
         {% for domain in domains %}
-        <tr>
+        <tr class="table-{{ domain.threat_status|lower }}">
             <td><a href="{{ url_for('domain_details', id=domain.id) }}">{{ domain.domain_name }}</a></td>
             <td>{{ domain.date_entered.strftime('%Y-%m-%d') }}</td>
             <td>{{ domain.registration_status or '-' }}</td>

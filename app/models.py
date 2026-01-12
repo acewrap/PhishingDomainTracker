@@ -16,6 +16,34 @@ class PhishingDomain(db.Model):
     registrar = db.Column(db.String(255), nullable=True)
     ip_address = db.Column(db.String(50), nullable=True)
     urlscan_uuid = db.Column(db.String(100), nullable=True)
+    has_mx_record = db.Column(db.Boolean, default=False)
+    manual_status = db.Column(db.String(50), nullable=True)
+
+    @property
+    def threat_status(self):
+        # 1. Manual Overrides (High Priority)
+        if self.manual_status == 'Whitelisted':
+            return 'Green'
+        if self.manual_status == 'Internal/Pentest':
+            return 'Blue'
+
+        # 2. Remediated (Historical)
+        if self.date_remediated:
+            return 'Grey'
+
+        # 3. Manual Overrides (Action Pending)
+        if self.manual_status == 'Takedown Requested':
+            return 'Purple'
+
+        # 4. Automated Threat Detection
+        if self.is_active and self.has_login_page:
+            return 'Red'
+
+        if self.has_mx_record:
+            return 'Orange'
+
+        # 5. Default / Monitoring
+        return 'Yellow'
     
     def __repr__(self):
         return f'<PhishingDomain {self.domain_name}>'
