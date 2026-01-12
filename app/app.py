@@ -5,6 +5,8 @@ from datetime import datetime
 import os
 import csv
 import io
+import sqlite3
+import sqlalchemy
 from flask import Response
 
 app = Flask(__name__)
@@ -169,8 +171,59 @@ def reports():
 
     return render_template('reports.html')
 
+def migrate_schema(app):
+    """
+    Checks for missing columns and adds them if necessary.
+    Specifically handles the 'registration_date' column.
+    """
+    with app.app_context():
+        # Only support SQLite for this simple migration
+        uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        if not uri.startswith('sqlite:///'):
+            return
+
+        db_path = uri.replace('sqlite:///', '')
+
+        # Handle relative paths properly
+        if not os.path.isabs(db_path):
+            # If not absolute, assume relative to instance folder or app root
+            # Flask-SQLAlchemy usually resolves relative paths to app.root_path or instance_path
+            # Here we try to resolve it relative to where the script is running or app instance path
+            # But let's rely on where the file actually is.
+
+            # Try instance path first
+            potential_path = os.path.join(app.instance_path, db_path)
+            if os.path.exists(potential_path):
+                db_path = potential_path
+            else:
+                 # Fallback to current working directory or just let sqlite3 open it
+                 pass
+
+        if not os.path.exists(db_path):
+            # Database doesn't exist yet, db.create_all() handled it or will handle it
+            return
+
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            # Check if registration_date exists
+            cursor.execute("PRAGMA table_info(phishing_domain)")
+            columns = [info[1] for info in cursor.fetchall()]
+
+            if 'registration_date' not in columns:
+                print("Migrating database: Adding registration_date column...")
+                cursor.execute("ALTER TABLE phishing_domain ADD COLUMN registration_date DATETIME")
+                conn.commit()
+                print("Migration successful.")
+
+            conn.close()
+        except Exception as e:
+            print(f"Error during migration: {e}")
+
 with app.app_context():
     db.create_all()
+    migrate_schema(app)
 
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_DEBUG', 'True').lower() in ['true', '1', 't']
