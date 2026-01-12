@@ -7,6 +7,7 @@ class PhishingDomain(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     domain_name = db.Column(db.String(255), unique=True, nullable=False)
     registration_status = db.Column(db.String(100), nullable=True)
+    registration_date = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=False)
     has_login_page = db.Column(db.Boolean, default=False)
     date_entered = db.Column(db.DateTime, default=datetime.utcnow)

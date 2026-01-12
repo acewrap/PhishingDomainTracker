@@ -30,7 +30,13 @@
                 <td><input type="checkbox" name="domain_ids" value="{{ domain.id }}" class="domain-checkbox"></td>
                 <td><a href="{{ url_for('domain_details', id=domain.id) }}">{{ domain.domain_name }}</a></td>
                 <td>{{ domain.date_entered.strftime('%Y-%m-%d') }}</td>
-                <td>{{ domain.registration_status or '-' }}</td>
+                <td>
+                    {% if domain.registration_date %}
+                        {{ domain.registration_date.strftime('%Y-%m-%d') }}
+                    {% else %}
+                        Unknown/Unavailable
+                    {% endif %}
+                </td>
                 <td>
                     {% if domain.is_active %}
                         <span class="badge bg-danger">Yes</span>
