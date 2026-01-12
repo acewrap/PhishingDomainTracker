@@ -77,6 +77,18 @@ def update_domain(id):
     flash('Domain updated successfully.', 'success')
     return redirect(url_for('domain_details', id=domain.id))
 
+@app.route('/delete_domains', methods=['POST'])
+def delete_domains():
+    domain_ids = request.form.getlist('domain_ids')
+    if domain_ids:
+        # Check if "delete_all" or similar logic is needed, but assuming ID list for now
+        PhishingDomain.query.filter(PhishingDomain.id.in_(domain_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        flash(f'{len(domain_ids)} domains deleted successfully.', 'success')
+    else:
+        flash('No domains selected for deletion.', 'warning')
+    return redirect(url_for('index'))
+
 with app.app_context():
     db.create_all()
 
