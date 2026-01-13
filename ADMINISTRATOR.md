@@ -20,3 +20,18 @@ As an administrator (and user), you can:
 - **Update Status:** Manually set status (e.g., Whitelisted, Takedown Requested).
 - **Delete Domains:** Remove domains from the system.
 - **Reports:** Generate CSV reports based on date range and status.
+
+## Advanced Data Management
+These features are available in the **Admin** dropdown menu.
+
+### Bulk Import
+You can bulk import domains using a CSV file.
+1. Navigate to **Admin > Import CSV**.
+2. Upload a CSV file. The file must have a header row with at least a `domain` column. An optional `entered_date` (YYYY-MM-DD) column is also supported.
+3. Duplicates will be automatically skipped.
+
+### Database Backup & Restore
+1. Navigate to **Admin > Backup/Restore**.
+2. **Backup:** Click "Download Backup" to get a full JSON dump of Users, API Keys, and Domains.
+3. **Restore:** Upload a previously generated backup JSON file.
+   - **WARNING:** This will **delete all existing data** in the database and replace it with the backup content. This action cannot be undone.

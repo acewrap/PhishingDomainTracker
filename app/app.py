@@ -36,10 +36,12 @@ login_manager.login_view = 'auth.login'
 
 from app.auth import auth
 from app.api import api_v1
+from app.admin import admin_bp
 
 csrf.exempt(api_v1)
 app.register_blueprint(auth)
 app.register_blueprint(api_v1)
+app.register_blueprint(admin_bp, url_prefix='/admin')
 
 @login_manager.user_loader
 def load_user(user_id):

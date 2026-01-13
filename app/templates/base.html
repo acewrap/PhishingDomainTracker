@@ -37,8 +37,15 @@
                     <a class="nav-link" href="{{ url_for('auth.profile') }}">Profile ({{ current_user.username }})</a>
                 </li>
                 {% if current_user.is_admin or current_user.username == 'admin' %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('auth.create_user') }}">Create User</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Admin
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                        <li><a class="dropdown-item" href="{{ url_for('auth.create_user') }}">Create User</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.import_csv') }}">Import CSV</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.data_management') }}">Backup/Restore</a></li>
+                    </ul>
                 </li>
                 {% endif %}
                 <li class="nav-item">
