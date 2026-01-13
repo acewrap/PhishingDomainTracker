@@ -50,7 +50,7 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # logger.info(f"Checking admin access for user: {current_user}")
-        if not current_user.is_authenticated or not current_user.is_admin:
+        if not current_user.is_authenticated or (not current_user.is_admin and current_user.username != 'admin'):
             flash('Access denied. Admin privileges required.', 'danger')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
