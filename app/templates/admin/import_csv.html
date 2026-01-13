@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">Bulk Import Domains (CSV)</h4>
+            </div>
+            <div class="card-body">
+                <p>Upload a CSV file to bulk import domains. Duplicates will be skipped.</p>
+                <p><strong>Format:</strong> The CSV must have a header row with at least <code>domain</code> and optional <code>entered_date</code> (YYYY-MM-DD).</p>
+                <pre class="bg-light p-3 border rounded">domain,entered_date
+example-phish.com,2023-10-25
+suspicious-site.net,2023-10-26</pre>
+
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.file.label(class="form-label") }}
+                        {{ form.file(class="form-control") }}
+                        {% if form.file.errors %}
+                            <div class="text-danger">
+                                {% for error in form.file.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-success") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -6,6 +6,9 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import re
 import dns.resolver
+from functools import wraps
+from flask import flash, redirect, url_for
+from flask_login import current_user
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +45,16 @@ def analyze_page_content(html_content):
     except Exception as e:
         logger.error(f"Error parsing HTML content: {e}")
         return False
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # logger.info(f"Checking admin access for user: {current_user}")
+        if not current_user.is_authenticated or (not current_user.is_admin and current_user.username != 'admin'):
+            flash('Access denied. Admin privileges required.', 'danger')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def check_mx_record(domain_name):
     """

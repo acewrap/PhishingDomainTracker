@@ -3,6 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.models import User, APIKey
 from app.extensions import db, bcrypt
 from app.forms import LoginForm, ChangePasswordForm, CreateUserForm, GenerateAPIKeyForm
+from app.utils import admin_required
 import secrets
 import hashlib
 from datetime import datetime
@@ -91,11 +92,8 @@ def profile():
 
 @auth.route('/admin/create_user', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def create_user():
-    if not current_user.is_admin and current_user.username != 'admin':
-        flash('Access denied.', 'danger')
-        return redirect(url_for('index'))
-
     form = CreateUserForm()
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
