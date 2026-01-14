@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_login import login_required
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import db, migrate, bcrypt, login_manager
 from app.models import PhishingDomain, User
-from app.utils import enrich_domain
+from app.utils import enrich_domain, report_to_vendors
 from app.forms import AddDomainForm
 from datetime import datetime
 import os
@@ -90,7 +90,12 @@ def add_domain():
 @login_required
 def domain_details(id):
     domain = PhishingDomain.query.get_or_404(id)
-    return render_template('domain_detail.html', domain=domain)
+
+    can_report = bool(os.environ.get('PHISHTANK_API_KEY') or
+                      os.environ.get('URLHAUS_API_KEY') or
+                      (os.environ.get('GOOGLE_WEBRISK_KEY') and os.environ.get('GOOGLE_PROJECT_ID')))
+
+    return render_template('domain_detail.html', domain=domain, can_report=can_report)
 
 @app.route('/enrich/<int:id>', methods=['POST'])
 @login_required
@@ -126,6 +131,25 @@ def update_domain(id):
     db.session.commit()
     flash('Domain updated successfully.', 'success')
     return redirect(url_for('domain_details', id=domain.id))
+
+@app.route('/domain/<int:id>/report_phishing', methods=['POST'])
+@login_required
+def report_phishing_route(id):
+    domain = PhishingDomain.query.get_or_404(id)
+    data = request.get_json()
+    if not data or 'password' not in data:
+        return jsonify({'error': 'Password required'}), 400
+
+    password = data['password']
+
+    # Verify password
+    if not bcrypt.check_password_hash(current_user.password_hash, password):
+        return jsonify({'error': 'Invalid password'}), 403
+
+    # Perform reporting
+    results = report_to_vendors(domain)
+
+    return jsonify({'success': True, 'results': results})
 
 @app.route('/enrich_domains', methods=['POST'])
 @login_required

@@ -73,8 +73,78 @@
 
                     <button type="submit" class="btn btn-success">Update Record</button>
                 </form>
+
+                <hr>
+
+                <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#reportModal" {% if not can_report %}disabled{% endif %}>
+                    Report to Security Vendors
+                </button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Report Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="reportModalLabel">Confirm Reporting</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Please enter your password to confirm reporting this domain to security vendors (Google Web Risk, URLhaus, PhishTank).</p>
+        <div class="mb-3">
+            <label for="confirmPassword" class="form-label">Password</label>
+            <input type="password" class="form-control" id="confirmPassword" required>
+        </div>
+        <div id="reportResult" class="mt-3"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitReport()">Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function submitReport() {
+    const password = document.getElementById('confirmPassword').value;
+    const resultDiv = document.getElementById('reportResult');
+    const csrfToken = "{{ csrf_token() }}";
+
+    if (!password) {
+        resultDiv.innerHTML = '<div class="alert alert-danger">Password is required.</div>';
+        return;
+    }
+
+    resultDiv.innerHTML = '<div class="alert alert-info">Reporting... Please wait.</div>';
+
+    fetch("{{ url_for('report_phishing_route', id=domain.id) }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify({ password: password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let html = '<div class="alert alert-success">Reporting Complete:<br><ul>';
+            for (const [vendor, status] of Object.entries(data.results)) {
+                html += `<li><strong>${vendor}:</strong> ${status}</li>`;
+            }
+            html += '</ul></div>';
+            resultDiv.innerHTML = html;
+        } else {
+             resultDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Request failed: ${error}</div>`;
+    });
+}
+</script>
 {% endblock %}
