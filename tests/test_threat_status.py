@@ -5,8 +5,8 @@ from app.models import PhishingDomain
 class TestThreatStatus(unittest.TestCase):
 
     def test_manual_overrides_high_priority(self):
-        # Whitelisted -> Green
-        d = PhishingDomain(domain_name='safe.com', manual_status='Whitelisted')
+        # Allowlisted -> Green
+        d = PhishingDomain(domain_name='safe.com', manual_status='Allowlisted')
         self.assertEqual(d.threat_status, 'Green')
 
         # Internal/Pentest -> Blue
@@ -14,7 +14,7 @@ class TestThreatStatus(unittest.TestCase):
         self.assertEqual(d.threat_status, 'Blue')
 
         # Override Red
-        d = PhishingDomain(domain_name='partner-login.com', manual_status='Whitelisted', is_active=True, has_login_page=True)
+        d = PhishingDomain(domain_name='partner-login.com', manual_status='Allowlisted', is_active=True, has_login_page=True)
         self.assertEqual(d.threat_status, 'Green')
 
     def test_remediated(self):
@@ -26,8 +26,8 @@ class TestThreatStatus(unittest.TestCase):
         d = PhishingDomain(domain_name='takedown-done.com', manual_status='Takedown Requested', date_remediated=datetime.utcnow())
         self.assertEqual(d.threat_status, 'Grey')
 
-        # But Whitelisted overrides Remediated (if for some reason both set)
-        d = PhishingDomain(domain_name='safe-old.com', manual_status='Whitelisted', date_remediated=datetime.utcnow())
+        # But Allowlisted overrides Remediated (if for some reason both set)
+        d = PhishingDomain(domain_name='safe-old.com', manual_status='Allowlisted', date_remediated=datetime.utcnow())
         self.assertEqual(d.threat_status, 'Green')
 
     def test_manual_overrides_action_pending(self):

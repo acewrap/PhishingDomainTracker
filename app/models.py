@@ -40,7 +40,7 @@ class PhishingDomain(db.Model):
     @property
     def threat_status(self):
         # 1. Manual Overrides (High Priority)
-        if self.manual_status == 'Whitelisted':
+        if self.manual_status == 'Allowlisted':
             return 'Green'
         if self.manual_status == 'Internal/Pentest':
             return 'Blue'

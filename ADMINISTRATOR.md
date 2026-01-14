@@ -17,7 +17,7 @@ The application comes with an initial administrator account.
 As an administrator (and user), you can:
 - **Add Domains:** Manually add domains to track.
 - **Enrich Domains:** Trigger enrichment (Whois, URLScan, etc.).
-- **Update Status:** Manually set status (e.g., Whitelisted, Takedown Requested).
+- **Update Status:** Manually set status (e.g., Allowlisted, Takedown Requested).
 - **Delete Domains:** Remove domains from the system.
 - **Reports:** Generate CSV reports based on date range and status.
 
