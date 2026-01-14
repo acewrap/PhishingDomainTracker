@@ -35,3 +35,5 @@ You can bulk import domains using a CSV file.
 2. **Backup:** Click "Download Backup" to get a full JSON dump of Users, API Keys, and Domains.
 3. **Restore:** Upload a previously generated backup JSON file.
    - **WARNING:** This will **delete all existing data** in the database and replace it with the backup content. This action cannot be undone.
+
+**Note:** Backup and Restore operations can also be performed programmatically via the API (see `API.md`).
