@@ -22,7 +22,7 @@ class TestEnrichmentDateParsing(unittest.TestCase):
             }
         }
 
-        with patch('app.utils.requests.get') as mock_get:
+        with patch('app.utils.http.get') as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = mock_response_data
 
@@ -45,7 +45,7 @@ class TestEnrichmentDateParsing(unittest.TestCase):
             }
         }
 
-        with patch('app.utils.requests.get') as mock_get:
+        with patch('app.utils.http.get') as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = mock_response_data
 
@@ -65,7 +65,7 @@ class TestEnrichmentDateParsing(unittest.TestCase):
             }
         }
 
-        with patch('app.utils.requests.get') as mock_get:
+        with patch('app.utils.http.get') as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = mock_response_data
 
@@ -85,7 +85,7 @@ class TestEnrichmentDateParsing(unittest.TestCase):
             }
         }
 
-        with patch('app.utils.requests.get') as mock_get:
+        with patch('app.utils.http.get') as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = mock_response_data
 
@@ -104,7 +104,7 @@ class TestEnrichmentDateParsing(unittest.TestCase):
             }
         }
 
-        with patch('app.utils.requests.get') as mock_get:
+        with patch('app.utils.http.get') as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = mock_response_data
 
