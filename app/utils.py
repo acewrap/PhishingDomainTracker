@@ -1,5 +1,7 @@
 import os
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import logging
 import urllib3
 from datetime import datetime
@@ -15,6 +17,18 @@ logging.basicConfig(level=logging.INFO)
 # Suppress InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger(__name__)
+
+# Configure Requests Session with Retry strategy
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
+http = requests.Session()
+http.mount("https://", adapter)
+http.mount("http://", adapter)
 
 WHOISXML_API_KEY = os.environ.get('WHOISXML_API_KEY')
 URLSCAN_API_KEY = os.environ.get('URLSCAN_API_KEY')
@@ -88,7 +102,8 @@ def fetch_and_check_domain(domain_name):
         url = f"{protocol}{domain_name}"
         try:
             logger.info(f"Fetching {url}...")
-            response = requests.get(url, timeout=10, verify=False) # verify=False to handle self-signed certs potentially
+            # verify=False to handle self-signed certs potentially
+            response = http.get(url, timeout=10, verify=False)
             if response.status_code == 200:
                 if analyze_page_content(response.text):
                     return True
@@ -103,6 +118,10 @@ def enrich_domain(domain_obj):
     Enriches the domain object with data from external APIs.
     Updates the domain_obj in place.
     """
+    # Sanitize domain name
+    if domain_obj.domain_name:
+        domain_obj.domain_name = domain_obj.domain_name.strip()
+
     logger.info(f"Enriching domain: {domain_obj.domain_name}")
     
     # 1. WhoisXML API
@@ -116,7 +135,7 @@ def enrich_domain(domain_obj):
                 'domainName': domain_obj.domain_name,
                 'outputFormat': 'JSON'
             }
-            response = requests.get(url, params=params, timeout=10)
+            response = http.get(url, params=params, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 whois_record = data.get('WhoisRecord', {})
@@ -171,7 +190,7 @@ def enrich_domain(domain_obj):
                     domain_obj.registration_date = None
 
             else:
-                logger.error(f"WhoisXML API returned {response.status_code}")
+                logger.error(f"WhoisXML API returned {response.status_code}: {response.text}")
         except Exception as e:
             logger.error(f"Error calling WhoisXML API: {e}")
     else:
@@ -192,7 +211,7 @@ def enrich_domain(domain_obj):
             
             # Submit scan
             scan_url = "https://urlscan.io/api/v1/scan/"
-            response = requests.post(scan_url, headers=headers, json=data, timeout=10)
+            response = http.post(scan_url, headers=headers, json=data, timeout=10)
             
             if response.status_code == 200:
                 scan_data = response.json()
@@ -259,7 +278,7 @@ def report_to_vendors(domain_obj):
             url = f"https://webrisk.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/uris:submit"
             params = {'key': GOOGLE_WEBRISK_KEY}
             data = {"submission": {"uri": domain_url}}
-            response = requests.post(url, params=params, json=data, timeout=10)
+            response = http.post(url, params=params, json=data, timeout=10)
             if response.status_code == 200:
                 results['Google Web Risk'] = 'Success'
             else:
@@ -287,7 +306,7 @@ def report_to_vendors(domain_obj):
                     }
                 ]
             }
-            response = requests.post(url, headers=headers, json=data, timeout=10)
+            response = http.post(url, headers=headers, json=data, timeout=10)
             if response.status_code == 200:
                 try:
                     resp_json = response.json()

@@ -66,7 +66,7 @@ def index():
 def add_domain():
     form = AddDomainForm()
     if form.validate_on_submit():
-        domain_name = form.domain_name.data
+        domain_name = form.domain_name.data.strip()
 
         # Check if exists
         existing = PhishingDomain.query.filter_by(domain_name=domain_name).first()

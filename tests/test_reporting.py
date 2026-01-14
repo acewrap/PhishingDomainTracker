@@ -37,7 +37,7 @@ class ReportingTestCase(unittest.TestCase):
             db.session.remove()
             db.drop_all()
 
-    @patch('app.utils.requests.post')
+    @patch('app.utils.http.post')
     def test_report_to_vendors_google_success(self, mock_post):
         # Patch the module variables directly since they are loaded at import time
         with patch('app.utils.GOOGLE_WEBRISK_KEY', 'fake_key'), \
@@ -60,7 +60,7 @@ class ReportingTestCase(unittest.TestCase):
                 self.assertIn('webrisk.googleapis.com', args[0])
                 self.assertEqual(kwargs['json']['submission']['uri'], 'http://evil.com')
 
-    @patch('app.utils.requests.post')
+    @patch('app.utils.http.post')
     def test_report_to_vendors_urlhaus_success(self, mock_post):
         with patch('app.utils.URLHAUS_API_KEY', 'fake_key'):
             mock_resp = MagicMock()
