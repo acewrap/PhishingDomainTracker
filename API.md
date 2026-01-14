@@ -42,3 +42,22 @@ Add a new domain to track.
 - `201 Created`: Domain added successfully.
 - `200 OK`: Domain already exists.
 - `400 Bad Request`: Missing `domain_name`.
+
+### GET /api/v1/backup
+**Admin Only.** Retrieve a full database backup in JSON format.
+
+**Response:**
+- `200 OK`: JSON file containing Users, API Keys, and Domains.
+- `403 Forbidden`: API Key does not belong to an admin.
+
+### POST /api/v1/restore
+**Admin Only.** Restore the database from a backup file.
+**WARNING:** This acts as a full reset. Existing data will be wiped.
+
+**Request Body:**
+The JSON backup data obtained from `GET /api/v1/backup`.
+
+**Response:**
+- `200 OK`: Database restored successfully.
+- `400 Bad Request`: Invalid JSON or corrupt backup file.
+- `403 Forbidden`: API Key does not belong to an admin.

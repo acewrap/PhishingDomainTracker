@@ -1,6 +1,7 @@
-from flask import Blueprint, jsonify, request, abort
+from flask import Blueprint, jsonify, request, abort, g
 from app.models import PhishingDomain, APIKey
 from app.extensions import db
+from app.backup_service import generate_backup_data, perform_restore
 import hashlib
 from functools import wraps
 from datetime import datetime
@@ -29,6 +30,8 @@ def require_api_key(f):
         # Update last used
         api_key.last_used_at = datetime.utcnow()
         db.session.commit()
+
+        g.api_user = api_key.user
 
         return f(*args, **kwargs)
     return decorated_function
@@ -67,3 +70,30 @@ def add_domain():
     db.session.commit()
 
     return jsonify({'message': 'Domain added', 'id': new_domain.id}), 201
+
+@api_v1.route('/backup', methods=['GET'])
+@require_api_key
+def backup():
+    if not g.api_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+
+    backup_data = generate_backup_data()
+    return jsonify(backup_data)
+
+@api_v1.route('/restore', methods=['POST'])
+@require_api_key
+def restore():
+    if not g.api_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid JSON'}), 400
+
+    try:
+        perform_restore(data)
+        return jsonify({'message': 'Database restored successfully'}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Restore failed: {str(e)}'}), 500
