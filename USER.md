@@ -15,3 +15,10 @@
 - **Dashboard:** View the list of tracked domains. Rows are color-coded based on threat status.
 - **Add Domain:** Submit a new domain for tracking.
 - **Reports:** Export domain data to CSV.
+
+## Reporting Phishing
+- Navigate to the **Domain Details** page for a specific domain.
+- In the "Manual Updates" section, click **Report to Security Vendors**.
+- Enter your password to confirm the action.
+- The system will attempt to report the domain to configured security vendors (e.g., Google Web Risk, URLhaus).
+- A status report will be displayed indicating success or failure for each vendor.

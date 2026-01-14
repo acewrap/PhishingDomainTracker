@@ -14,6 +14,12 @@
    - `FLASK_APP`: `app.app`
    - `SECRET_KEY`: A strong random string.
    - `DATABASE_URI`: (Optional) Database connection string. Defaults to `sqlite:///domains.db`.
+   - `WHOISXML_API_KEY`: (Optional) API key for WhoisXML domain enrichment.
+   - `URLSCAN_API_KEY`: (Optional) API key for Urlscan.io enrichment.
+   - `PHISHTANK_API_KEY`: (Optional) API key for PhishTank integration.
+   - `URLHAUS_API_KEY`: (Optional) API key for URLhaus submission.
+   - `GOOGLE_WEBRISK_KEY`: (Optional) API key for Google Web Risk.
+   - `GOOGLE_PROJECT_ID`: (Optional) Google Cloud Project ID for Web Risk submission.
 
 ## Database Initialization
 Run the following commands to set up the database:

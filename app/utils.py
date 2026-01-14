@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 WHOISXML_API_KEY = os.environ.get('WHOISXML_API_KEY')
 URLSCAN_API_KEY = os.environ.get('URLSCAN_API_KEY')
+PHISHTANK_API_KEY = os.environ.get('PHISHTANK_API_KEY')
+URLHAUS_API_KEY = os.environ.get('URLHAUS_API_KEY')
+GOOGLE_WEBRISK_KEY = os.environ.get('GOOGLE_WEBRISK_KEY')
+GOOGLE_PROJECT_ID = os.environ.get('GOOGLE_PROJECT_ID')
 
 def analyze_page_content(html_content):
     """
@@ -235,3 +239,81 @@ def enrich_domain(domain_obj):
         domain_obj.has_mx_record = False
 
     return domain_obj
+
+def report_to_vendors(domain_obj):
+    """
+    Reports the domain to security vendors (Google Web Risk, URLhaus, PhishTank).
+    Returns a dictionary of results.
+    """
+    results = {}
+    domain_url = domain_obj.domain_name
+    # Ensure scheme is present for submission
+    if not domain_url.startswith('http'):
+        domain_url = f"http://{domain_url}"
+
+    logger.info(f"Reporting domain {domain_url} to vendors...")
+
+    # 1. Google Web Risk
+    if GOOGLE_WEBRISK_KEY and GOOGLE_PROJECT_ID:
+        try:
+            url = f"https://webrisk.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/uris:submit"
+            params = {'key': GOOGLE_WEBRISK_KEY}
+            data = {"submission": {"uri": domain_url}}
+            response = requests.post(url, params=params, json=data, timeout=10)
+            if response.status_code == 200:
+                results['Google Web Risk'] = 'Success'
+            else:
+                logger.error(f"Google Web Risk error: {response.text}")
+                results['Google Web Risk'] = f"Failed ({response.status_code})"
+        except Exception as e:
+            logger.error(f"Google Web Risk exception: {e}")
+            results['Google Web Risk'] = f"Error: {str(e)}"
+    else:
+        results['Google Web Risk'] = 'Skipped (Missing Config)'
+
+    # 2. URLhaus
+    if URLHAUS_API_KEY:
+        try:
+            url = "https://urlhaus.abuse.ch/api/"
+            headers = {'Auth-Key': URLHAUS_API_KEY}
+            # URLhaus expects 'submission' as a list of objects
+            # threat must be 'malware_download' per docs/API constraint
+            data = {
+                'anonymous': '0',
+                'submission': [
+                    {
+                        'url': domain_url,
+                        'threat': 'malware_download'
+                    }
+                ]
+            }
+            response = requests.post(url, headers=headers, json=data, timeout=10)
+            if response.status_code == 200:
+                try:
+                    resp_json = response.json()
+                    # Check for bulk submission response format
+                    # Example success: {"query_status": "ok", ...}
+                    q_status = resp_json.get('query_status')
+                    if q_status == 'ok' or 'submission_results' in resp_json:
+                         results['URLhaus'] = 'Success'
+                    else:
+                         results['URLhaus'] = f"Failed ({q_status or 'Unknown'})"
+                except ValueError:
+                    results['URLhaus'] = 'Success (Non-JSON response)'
+            else:
+                logger.error(f"URLhaus error: {response.text}")
+                results['URLhaus'] = f"Failed ({response.status_code})"
+        except Exception as e:
+            logger.error(f"URLhaus exception: {e}")
+            results['URLhaus'] = f"Error: {str(e)}"
+    else:
+        results['URLhaus'] = 'Skipped (Missing Key)'
+
+    # 3. PhishTank
+    if PHISHTANK_API_KEY:
+        # No public submission API available
+        results['PhishTank'] = 'Skipped (No Submission API)'
+    else:
+        results['PhishTank'] = 'Skipped (Missing Key)'
+
+    return results
