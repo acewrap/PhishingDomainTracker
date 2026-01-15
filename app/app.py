@@ -13,6 +13,7 @@ import sqlite3
 import sqlalchemy
 from flask import Response
 from flask_wtf.csrf import CSRFProtect
+from app.scheduler import init_scheduler
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -250,5 +251,7 @@ def reports():
     return render_template('reports.html')
 
 if __name__ == '__main__':
+    # Initialize scheduler
+    init_scheduler(app)
     debug_mode = os.environ.get('FLASK_DEBUG', 'True').lower() in ['true', '1', 't']
     app.run(debug=debug_mode, host='0.0.0.0', port=8080)

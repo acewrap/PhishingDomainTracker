@@ -35,6 +35,7 @@ class PhishingDomain(db.Model):
     ip_address = db.Column(db.String(50), nullable=True)
     urlscan_uuid = db.Column(db.String(100), nullable=True)
     has_mx_record = db.Column(db.Boolean, default=False)
+    mx_records = db.Column(db.Text, nullable=True)
     manual_status = db.Column(db.String(50), nullable=True)
 
     @property
@@ -65,3 +66,10 @@ class PhishingDomain(db.Model):
     
     def __repr__(self):
         return f'<PhishingDomain {self.domain_name}>'
+
+class ThreatTerm(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    term = db.Column(db.String(255), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'<ThreatTerm {self.term}>'

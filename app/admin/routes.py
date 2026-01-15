@@ -5,11 +5,41 @@ from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required
 from app.admin import admin_bp
-from app.models import User, APIKey, PhishingDomain
+from app.models import User, APIKey, PhishingDomain, ThreatTerm
 from app.extensions import db, bcrypt
 from app.utils import admin_required
-from app.admin.forms import CSVUploadForm, RestoreForm
+from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm
 from app.backup_service import generate_backup_data, perform_restore
+
+@admin_bp.route('/threat-terms', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def threat_terms():
+    form = ThreatTermForm()
+    if form.validate_on_submit():
+        term = form.term.data.strip()
+        if term:
+            if not ThreatTerm.query.filter_by(term=term).first():
+                new_term = ThreatTerm(term=term)
+                db.session.add(new_term)
+                db.session.commit()
+                flash(f'Term "{term}" added.', 'success')
+            else:
+                flash(f'Term "{term}" already exists.', 'warning')
+        return redirect(url_for('admin.threat_terms'))
+
+    terms = ThreatTerm.query.all()
+    return render_template('admin/threat_terms.html', form=form, terms=terms)
+
+@admin_bp.route('/threat-terms/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_threat_term(id):
+    term = ThreatTerm.query.get_or_404(id)
+    db.session.delete(term)
+    db.session.commit()
+    flash(f'Term "{term.term}" deleted.', 'success')
+    return redirect(url_for('admin.threat_terms'))
 
 @admin_bp.route('/data-management', methods=['GET'])
 @login_required

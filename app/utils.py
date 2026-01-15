@@ -3,6 +3,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import urllib3
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -17,6 +18,41 @@ logging.basicConfig(level=logging.INFO)
 # Suppress InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger(__name__)
+
+# Setup syslog logger
+def setup_syslog_logger():
+    log_dir = 'logs'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    sys_logger = logging.getLogger('syslog_logger')
+    sys_logger.setLevel(logging.INFO)
+
+    # Check if handler already exists to avoid duplicates
+    if not sys_logger.handlers:
+        handler = TimedRotatingFileHandler(
+            os.path.join(log_dir, 'syslog.log'),
+            when='d',
+            interval=1,
+            backupCount=14
+        )
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+        sys_logger.addHandler(handler)
+
+    return sys_logger
+
+syslog_logger = setup_syslog_logger()
+
+def log_domain_event(domain_name, old_status, new_status, reason):
+    """
+    Logs domain status changes in a syslog-compatible KV format.
+    Format: status=change domain=xyz.com old_cat=Yellow new_cat=Red reason="Login kit detected"
+    """
+    message = f'status=change domain={domain_name} old_cat={old_status} new_cat={new_status} reason="{reason}"'
+    syslog_logger.info(message)
+    # Also log to main app logger for debugging
+    logger.info(f"Syslog Event: {message}")
 
 # Configure Requests Session with Retry strategy
 retry_strategy = Retry(
@@ -42,17 +78,30 @@ def analyze_page_content(html_content):
     Analyzes the HTML content to check for login page indicators.
     Returns True if indicators are found, False otherwise.
     """
+    # Import inside function to avoid potential circular imports
+    from app.models import ThreatTerm
+
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        # Check for <input type="password">
-        if soup.find('input', {'type': 'password'}):
-            logger.info("Found password input field.")
-            return True
+        # Check for <input type="password"> case-insensitive
+        inputs = soup.find_all('input')
+        for inp in inputs:
+            if inp.get('type', '').lower() == 'password':
+                logger.info("Found password input field.")
+                return True
 
         # Check for specific keywords (case-insensitive)
         text_content = soup.get_text()
         keywords = ["uAPI", "password", "username", "PCC", "HAP", "host access profile"]
+
+        # Add dynamic threat terms
+        try:
+            db_terms = ThreatTerm.query.all()
+            for t in db_terms:
+                keywords.append(t.term)
+        except Exception as e:
+            logger.warning(f"Error fetching ThreatTerms: {e}")
 
         for keyword in keywords:
             if re.search(r'\b' + re.escape(keyword) + r'\b', text_content, re.IGNORECASE):
@@ -77,19 +126,22 @@ def admin_required(f):
 def check_mx_record(domain_name):
     """
     Checks if the domain has any MX records.
-    Returns True if MX records are found, False otherwise.
+    Returns a list of MX record strings if found, empty list otherwise.
     """
+    records = []
     try:
         answers = dns.resolver.resolve(domain_name, 'MX')
         if answers:
             logger.info(f"MX records found for {domain_name}")
-            return True
+            for rdata in answers:
+                records.append(rdata.to_text())
+            records.sort()
     except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.exception.Timeout):
         pass
     except Exception as e:
         logger.warning(f"Error checking MX records for {domain_name}: {e}")
 
-    return False
+    return records
 
 def fetch_and_check_domain(domain_name):
     """
@@ -252,10 +304,13 @@ def enrich_domain(domain_obj):
         domain_obj.has_login_page = False
 
     # 4. Check for MX records
-    if check_mx_record(domain_obj.domain_name):
+    mx_records = check_mx_record(domain_obj.domain_name)
+    if mx_records:
         domain_obj.has_mx_record = True
+        domain_obj.mx_records = "\n".join(mx_records)
     else:
         domain_obj.has_mx_record = False
+        domain_obj.mx_records = None
 
     return domain_obj
 

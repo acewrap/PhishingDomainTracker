@@ -21,6 +21,23 @@ As an administrator (and user), you can:
 - **Delete Domains:** Remove domains from the system.
 - **Reports:** Generate CSV reports based on date range and status.
 
+## Threat Terms Management
+1. Navigate to **Admin > Threat Terms**.
+2. **Add Term:** Enter a keyword (e.g., "CompanyXYZ", "HR Portal") that implies a phishing attempt against your organization.
+3. **Delete Term:** Remove obsolete terms.
+
+These terms are used by the automated scheduler and enrichment process to scan domain content. If a match is found on a non-allowlisted domain, it may be flagged as 'Red'.
+
+## Automated Scheduler
+The system runs background tasks to check domain status:
+- **Purple (6h):** Checks for remediation (404/no login).
+- **Red (24h):** Checks availability.
+- **Orange (24h):** Monitors MX records.
+- **Yellow (Weekly):** Checks parked domains for new activity.
+- **Grey (Monthly):** Checks for reactivation.
+
+Logs are stored in `logs/syslog.log` relative to the application root.
+
 ## Advanced Data Management
 These features are available in the **Admin** dropdown menu.
 
