@@ -8,6 +8,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login_at = db.Column(db.DateTime, nullable=True)
+    failed_login_attempts = db.Column(db.Integer, default=0)
     password_expired = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
     api_keys = db.relationship('APIKey', backref='user', lazy=True)

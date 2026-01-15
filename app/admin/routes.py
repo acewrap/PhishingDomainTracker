@@ -1,15 +1,43 @@
 import json
 import io
 import csv
+import secrets
 from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, send_file
-from flask_login import login_required
+from flask_login import login_required, current_user
 from app.admin import admin_bp
 from app.models import User, APIKey, PhishingDomain, ThreatTerm
 from app.extensions import db, bcrypt
-from app.utils import admin_required
+from app.utils import admin_required, log_security_event
 from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm
 from app.backup_service import generate_backup_data, perform_restore
+
+@admin_bp.route('/users')
+@login_required
+@admin_required
+def manage_users():
+    users = User.query.all()
+    return render_template('admin/users.html', users=users)
+
+@admin_bp.route('/users/reset/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def reset_user_password(id):
+    user = User.query.get_or_404(id)
+
+    # Generate random password
+    new_password = secrets.token_urlsafe(12)
+    hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+
+    user.password_hash = hashed_password
+    user.password_expired = True
+    user.failed_login_attempts = 0 # Reset failed attempts too
+    db.session.commit()
+
+    log_security_event('Password Change', current_user.username, request.remote_addr, 'info', target_user=user.username, action='admin_reset')
+
+    flash(f'Password for {user.username} reset to: {new_password}. Please copy it now.', 'success')
+    return redirect(url_for('admin.manage_users'))
 
 @admin_bp.route('/threat-terms', methods=['GET', 'POST'])
 @login_required
@@ -23,6 +51,16 @@ def threat_terms():
                 new_term = ThreatTerm(term=term)
                 db.session.add(new_term)
                 db.session.commit()
+
+                log_security_event(
+                    'Threat String Added',
+                    current_user.username,
+                    request.remote_addr,
+                    'info',
+                    threat_string=term,
+                    category='keyword'
+                )
+
                 flash(f'Term "{term}" added.', 'success')
             else:
                 flash(f'Term "{term}" already exists.', 'warning')
@@ -52,6 +90,7 @@ def data_management():
 @login_required
 @admin_required
 def backup():
+    log_security_event('Backup Created', current_user.username, request.remote_addr, 'info')
     backup_data = generate_backup_data()
 
     # Create JSON file in memory
@@ -77,6 +116,8 @@ def restore():
         try:
             data = json.load(file)
             perform_restore(data)
+
+            log_security_event('Database Restored', current_user.username, request.remote_addr, 'warning', status='Success')
 
             flash('Database restored successfully. You may need to log in again.', 'success')
             return redirect(url_for('auth.login'))
@@ -136,6 +177,16 @@ def import_csv():
 
         try:
             db.session.commit()
+
+            log_security_event(
+                'CSV Import',
+                current_user.username,
+                request.remote_addr,
+                'info',
+                added_count=added_count,
+                skipped_count=skipped_count
+            )
+
             flash(f'Import complete: {added_count} added, {skipped_count} skipped.', 'success')
             return redirect(url_for('index'))
         except Exception as e:

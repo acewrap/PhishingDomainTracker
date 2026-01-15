@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import db, migrate, bcrypt, login_manager
 from app.models import PhishingDomain, User
-from app.utils import enrich_domain, report_to_vendors
+from app.utils import enrich_domain, report_to_vendors, log_security_event
 from app.forms import AddDomainForm
 from datetime import datetime
 import os
@@ -112,6 +112,15 @@ def enrich_domain_route(id):
 def update_domain(id):
     domain = PhishingDomain.query.get_or_404(id)
     
+    # Capture old values
+    old_values = {
+        'action_taken': domain.action_taken,
+        'date_remediated': domain.date_remediated,
+        'is_active': domain.is_active,
+        'has_login_page': domain.has_login_page,
+        'manual_status': domain.manual_status
+    }
+
     domain.action_taken = request.form.get('action_taken')
     
     # Handle date_remediated
@@ -130,6 +139,37 @@ def update_domain(id):
     domain.manual_status = request.form.get('manual_status')
     
     db.session.commit()
+
+    # Compare and log
+    changes = []
+    if old_values['action_taken'] != domain.action_taken:
+        changes.append(('action_taken', old_values['action_taken'], domain.action_taken))
+
+    if old_values['date_remediated'] != domain.date_remediated:
+        changes.append(('date_remediated', str(old_values['date_remediated']), str(domain.date_remediated)))
+
+    if old_values['is_active'] != domain.is_active:
+        changes.append(('is_active', old_values['is_active'], domain.is_active))
+
+    if old_values['has_login_page'] != domain.has_login_page:
+        changes.append(('has_login_page', old_values['has_login_page'], domain.has_login_page))
+
+    if old_values['manual_status'] != domain.manual_status:
+        changes.append(('manual_status', old_values['manual_status'], domain.manual_status))
+
+    for field, old, new in changes:
+         log_security_event(
+             'Domain Record Changed',
+             current_user.username,
+             request.remote_addr,
+             'info',
+             domain_name=domain.domain_name,
+             field_name=field,
+             old_value=old,
+             new_value=new,
+             action_type='user'
+         )
+
     flash('Domain updated successfully.', 'success')
     return redirect(url_for('domain_details', id=domain.id))
 

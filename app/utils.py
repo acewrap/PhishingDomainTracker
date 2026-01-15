@@ -12,6 +12,8 @@ import dns.resolver
 from functools import wraps
 from flask import flash, redirect, url_for
 from flask_login import current_user
+import socket
+import json
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -44,15 +46,59 @@ def setup_syslog_logger():
 
 syslog_logger = setup_syslog_logger()
 
+def log_security_event(event_name, user_id, ip_address, severity='info', **kwargs):
+    """
+    Logs a security event in Syslog format with structured JSON data.
+
+    Format: <PRI>1 TIMESTAMP HOSTNAME APPNAME PID - - JSON_MESSAGE
+    """
+    severity_map = {
+        'emergency': 0, 'alert': 1, 'critical': 2, 'error': 3,
+        'warning': 4, 'notice': 5, 'info': 6, 'debug': 7
+    }
+
+    sev_code = severity_map.get(severity.lower(), 6)
+    facility = 1 # User
+    priority = (facility * 8) + sev_code
+
+    timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    hostname = socket.gethostname()
+    app_name = 'PhishingDomainTracker'
+    pid = os.getpid()
+
+    # Construct structured data
+    log_data = {
+        'event': event_name,
+        'user_id': user_id,
+        'src_ip': ip_address,
+        'timestamp_utc': timestamp
+    }
+    log_data.update(kwargs)
+
+    # Message part is the JSON string
+    message = json.dumps(log_data)
+
+    # Construct Syslog line
+    syslog_line = f"<{priority}>1 {timestamp} {hostname} {app_name} {pid} - - {message}"
+
+    syslog_logger.info(syslog_line)
+
 def log_domain_event(domain_name, old_status, new_status, reason):
     """
-    Logs domain status changes in a syslog-compatible KV format.
-    Format: status=change domain=xyz.com old_cat=Yellow new_cat=Red reason="Login kit detected"
+    Legacy wrapper for domain status changes to use new logging system.
     """
-    message = f'status=change domain={domain_name} old_cat={old_status} new_cat={new_status} reason="{reason}"'
-    syslog_logger.info(message)
+    log_security_event(
+        event_name="Domain Status Change",
+        user_id="automated",
+        ip_address="127.0.0.1",
+        severity="info",
+        domain_name=domain_name,
+        old_status=old_status,
+        new_status=new_status,
+        reason=reason
+    )
     # Also log to main app logger for debugging
-    logger.info(f"Syslog Event: {message}")
+    logger.info(f"Domain Change: {domain_name} {old_status}->{new_status} ({reason})")
 
 # Configure Requests Session with Retry strategy
 retry_strategy = Retry(
@@ -118,6 +164,22 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         # logger.info(f"Checking admin access for user: {current_user}")
         if not current_user.is_authenticated or (not current_user.is_admin and current_user.username != 'admin'):
+
+            # Log denied access
+            user_id = current_user.username if current_user.is_authenticated else 'anonymous'
+            # IP address - simple check, might need request object if available
+            from flask import request
+            ip = request.remote_addr if request else 'unknown'
+            endpoint = request.endpoint if request else 'unknown'
+
+            log_security_event(
+                event_name="Unauthorized Admin Access Attempt",
+                user_id=user_id,
+                ip_address=ip,
+                severity="warning",
+                endpoint=endpoint
+            )
+
             flash('Access denied. Admin privileges required.', 'danger')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
@@ -176,8 +238,23 @@ def enrich_domain(domain_obj):
 
     logger.info(f"Enriching domain: {domain_obj.domain_name}")
     
+    # automated/manual context logic?
+    # For now we don't know who called this function easily without passing it down.
+    # We can rely on the caller to log the "Enrichment Triggered" event,
+    # and here we log the specific API calls as requested.
+    # Requirement: "Log whenever the tool calls external APIs... Capture userid (or automated...)"
+    # Since this function doesn't take a user_id, we might need to inspect Flask global 'current_user' if available.
+
+    user_id = 'automated'
+    try:
+        if current_user and current_user.is_authenticated:
+            user_id = current_user.username
+    except:
+        pass # outside request context
+
     # 1. WhoisXML API
     if WHOISXML_API_KEY:
+        log_security_event('External API Call', user_id, 'system', 'info', service='WhoisXML', api_key_name='WHOISXML_API_KEY')
         try:
             # Note: This is a placeholder URL and structure. 
             # In a real scenario, check the specific API endpoint and params.
@@ -250,6 +327,7 @@ def enrich_domain(domain_obj):
 
     # 2. Urlscan.io API
     if URLSCAN_API_KEY:
+        log_security_event('External API Call', user_id, 'system', 'info', service='Urlscan.io', api_key_name='URLSCAN_API_KEY')
         try:
             # We want to scan the domain
             headers = {
@@ -327,8 +405,16 @@ def report_to_vendors(domain_obj):
 
     logger.info(f"Reporting domain {domain_url} to vendors...")
 
+    user_id = 'automated'
+    try:
+        if current_user and current_user.is_authenticated:
+            user_id = current_user.username
+    except:
+        pass
+
     # 1. Google Web Risk
     if GOOGLE_WEBRISK_KEY and GOOGLE_PROJECT_ID:
+        log_security_event('External API Call', user_id, 'system', 'info', service='Google Web Risk', api_key_name='GOOGLE_WEBRISK_KEY')
         try:
             url = f"https://webrisk.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/uris:submit"
             params = {'key': GOOGLE_WEBRISK_KEY}
@@ -347,6 +433,7 @@ def report_to_vendors(domain_obj):
 
     # 2. URLhaus
     if URLHAUS_API_KEY:
+        log_security_event('External API Call', user_id, 'system', 'info', service='URLhaus', api_key_name='URLHAUS_API_KEY')
         try:
             url = "https://urlhaus.abuse.ch/api/"
             headers = {'Auth-Key': URLHAUS_API_KEY}
@@ -385,6 +472,7 @@ def report_to_vendors(domain_obj):
 
     # 3. PhishTank
     if PHISHTANK_API_KEY:
+        log_security_event('External API Call', user_id, 'system', 'info', service='PhishTank', api_key_name='PHISHTANK_API_KEY')
         # No public submission API available
         results['PhishTank'] = 'Skipped (No Submission API)'
     else:

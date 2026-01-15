@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.models import User, APIKey
 from app.extensions import db, bcrypt
 from app.forms import LoginForm, ChangePasswordForm, CreateUserForm, GenerateAPIKeyForm
-from app.utils import admin_required
+from app.utils import admin_required, log_security_event
 import secrets
 import hashlib
 from datetime import datetime
@@ -21,7 +21,19 @@ def login():
         if user and bcrypt.check_password_hash(user.password_hash, form.password.data):
             login_user(user)
             user.last_login_at = datetime.utcnow()
+            user.failed_login_attempts = 0 # Reset failed attempts
             db.session.commit()
+
+            # Log Login
+            session_id = request.cookies.get('session', 'unknown')
+            log_security_event(
+                'Login',
+                user.username,
+                request.remote_addr,
+                'info',
+                is_admin=user.is_admin,
+                session_id=session_id
+            )
 
             if user.password_expired:
                 flash('Your password has expired. Please change it.', 'warning')
@@ -29,6 +41,35 @@ def login():
 
             return redirect(url_for('index'))
         else:
+            if user:
+                user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+                db.session.commit()
+
+                log_security_event(
+                    'Password Failure',
+                    user.username,
+                    request.remote_addr,
+                    'warning',
+                    failed_attempts=user.failed_login_attempts
+                )
+
+                if user.failed_login_attempts >= 3:
+                     log_security_event(
+                        '3 or more failed authentication attempts',
+                        user.username,
+                        request.remote_addr,
+                        'warning'
+                    )
+            else:
+                 # Log failure for unknown user
+                 log_security_event(
+                    'Password Failure',
+                    form.username.data,
+                    request.remote_addr,
+                    'warning',
+                    reason="Unknown user"
+                )
+
             flash('Login Unsuccessful. Please check username and password', 'danger')
 
     return render_template('login.html', form=form)
@@ -36,6 +77,19 @@ def login():
 @auth.route('/logout')
 @login_required
 def logout():
+    # Calculate duration
+    duration = 0
+    if current_user.last_login_at:
+        duration = (datetime.utcnow() - current_user.last_login_at).total_seconds()
+
+    log_security_event(
+        'Logoff',
+        current_user.username,
+        request.remote_addr,
+        'info',
+        session_duration_seconds=duration
+    )
+
     logout_user()
     return redirect(url_for('auth.login'))
 
@@ -51,6 +105,9 @@ def change_password():
             current_user.password_hash = hashed_password
             current_user.password_expired = False
             db.session.commit()
+
+            log_security_event('Password Change', current_user.username, request.remote_addr, 'info')
+
             flash('Your password has been updated!', 'success')
             return redirect(url_for('index'))
 
@@ -118,6 +175,8 @@ def create_user():
         )
         db.session.add(new_api_key)
         db.session.commit()
+
+        log_security_event('User Created', current_user.username, request.remote_addr, 'info', target_user=user.username, is_admin_created=user.is_admin)
 
         flash(f'User {user.username} created. API Key generated. Access: {access_key}, Secret: {secret_key}', 'success')
         return redirect(url_for('auth.create_user'))

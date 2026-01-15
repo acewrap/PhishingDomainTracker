@@ -43,6 +43,7 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="adminDropdown">
                         <li><a class="dropdown-item" href="{{ url_for('auth.create_user') }}">Create User</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">Manage Users</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.import_csv') }}">Import CSV</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.data_management') }}">Backup/Restore</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.threat_terms') }}">Threat Terms</a></li>
