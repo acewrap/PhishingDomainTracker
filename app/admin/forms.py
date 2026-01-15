@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import SubmitField
+from wtforms import SubmitField, StringField
+from wtforms.validators import DataRequired
 
 class CSVUploadForm(FlaskForm):
     file = FileField('CSV File', validators=[
@@ -15,3 +16,7 @@ class RestoreForm(FlaskForm):
         FileAllowed(['json'], 'JSON files only!')
     ])
     submit = SubmitField('Restore Database')
+
+class ThreatTermForm(FlaskForm):
+    term = StringField('Threat Term', validators=[DataRequired()])
+    submit = SubmitField('Add Term')

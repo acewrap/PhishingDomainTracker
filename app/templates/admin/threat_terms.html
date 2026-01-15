@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Threat Terms Management</h2>
+        <p>Manage keywords that trigger automatic categorization to 'Red' (Active/Login).</p>
+
+        <div class="card mb-4">
+            <div class="card-header">Add New Term</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.threat_terms') }}">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.term.label(class="form-label") }}
+                        {{ form.term(class="form-control") }}
+                    </div>
+                    {{ form.submit(class="btn btn-primary") }}
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Existing Terms</div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Term</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for term in terms %}
+                        <tr>
+                            <td>{{ term.term }}</td>
+                            <td>
+                                <form action="{{ url_for('admin.delete_threat_term', id=term.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

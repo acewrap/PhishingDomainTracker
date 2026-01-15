@@ -9,3 +9,4 @@ flask-migrate
 flask-wtf
 email_validator
 urllib3>=1.26.0
+APScheduler
