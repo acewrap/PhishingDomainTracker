@@ -9,6 +9,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import re
 import dns.resolver
+from app.cache import get_compiled_regex
 from functools import wraps
 from flask import flash, redirect, url_for
 from flask_login import current_user
@@ -158,7 +159,8 @@ def analyze_page_content(html_content, base_url=None):
         # Helper to check keywords against text
         def check_keywords(text, source_name="text"):
             for keyword in keywords:
-                if re.search(r'\b' + re.escape(keyword) + r'\b', text, re.IGNORECASE):
+                compiled_regex = get_compiled_regex(keyword)
+                if compiled_regex.search(text):
                     logger.info(f"Found keyword in {source_name}: {keyword}")
                     return True
             return False
