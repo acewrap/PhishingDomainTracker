@@ -21,6 +21,11 @@ As an administrator (and user), you can:
 - **Delete Domains:** Remove domains from the system.
 - **Reports:** Generate CSV reports based on date range and status.
 
+### Bulk Dashboard Actions
+On the main dashboard, you can select multiple domains using the checkboxes and perform bulk actions:
+- **Enrich/Refresh:** Triggers enrichment for all selected domains.
+- **Delete Selected:** Deletes all selected domains.
+
 ## Threat Terms Management
 1. Navigate to **Admin > Threat Terms**.
 2. **Add Term:** Enter a keyword (e.g., "CompanyXYZ", "HR Portal") that implies a phishing attempt against your organization.
@@ -30,7 +35,7 @@ These terms are used by the automated scheduler and enrichment process to scan d
 
 ## Automated Scheduler
 The system runs background tasks to check domain status:
-- **Purple (6h):** Checks for remediation (404/no login).
+- **Purple (6h):** Checks for remediation (404/no login). Moves to Yellow (or Orange) if site is down.
 - **Red (24h):** Checks availability.
 - **Orange (24h):** Monitors MX records.
 - **Yellow (Weekly):** Checks parked domains for new activity.
