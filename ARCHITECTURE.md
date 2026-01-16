@@ -20,8 +20,8 @@ graph TD
     subgraph "Application Server"
         UI
         API
-        Scheduler[Background Scheduler (APScheduler)]
-        Logic[Business Logic & Threat Detection]
+        Scheduler["Background Scheduler (APScheduler)"]
+        Logic["Business Logic & Threat Detection"]
     end
 
     subgraph "Data Storage"
