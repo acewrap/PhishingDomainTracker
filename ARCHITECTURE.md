@@ -78,7 +78,8 @@ stateDiagram-v2
     Red --> Grey: Site Unreachable (24h Check)
     Red --> Purple: Analyst Requests Takedown
 
-    Purple --> Grey: Site Returns 404 / Content Removed
+    Purple --> Yellow: Site Returns 404 / Content Removed
+    Purple --> Orange: Site Returns 404 (w/ MX)
 
     Grey --> Red: Domain Comes Back Online
 
@@ -117,7 +118,7 @@ The application runs several background jobs to keep data fresh:
 
 | Frequency | Target Group | Action |
 | :--- | :--- | :--- |
-| **Every 6 Hours** | **Purple** | Checks if the site is down (404/Connection Refused). Moves to **Grey** if verified down. |
+| **Every 6 Hours** | **Purple** | Checks if the site is down (404/Connection Refused). Moves to **Yellow** (or **Orange** if MX exists) if verified down. |
 | **Every 24 Hours** | **Red** | Checks if the site is still active. Moves to **Grey** if unreachable. Updates IP address. |
 | **Every 24 Hours** | **Orange** | Checks for changes in MX records. Logs any modifications. |
 | **Weekly** | **Yellow** | Checks if the site has become active (200 OK) or hosts a login page. Moves to **Red** if positive. |

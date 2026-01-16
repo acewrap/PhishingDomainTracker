@@ -41,14 +41,16 @@ def check_purple_domains(app):
                         pass
 
                 if not found_active:
-                    # Move to Grey
+                    # Move to Yellow (or Orange)
                     old_status = 'Purple'
                     domain.manual_status = None
-                    domain.date_remediated = datetime.utcnow()
+                    domain.date_remediated = None
                     domain.is_active = False
+
+                    new_status = 'Orange' if domain.has_mx_record else 'Yellow'
                     db.session.commit()
 
-                    log_domain_event(domain.domain_name, old_status, 'Grey', "Login kit not detected (404 or content removed)")
+                    log_domain_event(domain.domain_name, old_status, new_status, "Login kit not detected (404 or content removed)")
 
             except Exception as e:
                 logger.error(f"Error checking purple domain {domain.domain_name}: {e}")
