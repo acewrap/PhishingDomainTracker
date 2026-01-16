@@ -9,10 +9,20 @@
             </div>
             <div class="card-body">
                 <p>Upload a CSV file to bulk import domains. Duplicates will be skipped.</p>
-                <p><strong>Format:</strong> The CSV must have a header row with at least <code>domain</code> and optional <code>entered_date</code> (YYYY-MM-DD).</p>
-                <pre class="bg-light p-3 border rounded">domain,entered_date
-example-phish.com,2023-10-25
-suspicious-site.net,2023-10-26</pre>
+                <p><strong>Format:</strong> The CSV must have a header row with at least <code>domain</code>. Optional columns: <code>entered_date</code> (YYYY-MM-DD) and <code>category</code>.</p>
+                <p><strong>Supported Categories (by color):</strong></p>
+                <ul>
+                    <li><code>green</code>: Allowlisted</li>
+                    <li><code>blue</code>: Internal/Pentest</li>
+                    <li><code>purple</code>: Takedown Requested</li>
+                    <li><code>grey</code>: Remediated (sets remediated date)</li>
+                    <li><code>red</code>: Active Threat (Login Page)</li>
+                    <li><code>orange</code>: Suspicious (MX Record)</li>
+                    <li><code>yellow</code>: Monitoring (Default)</li>
+                </ul>
+                <pre class="bg-light p-3 border rounded">domain,entered_date,category
+example-phish.com,2023-10-25,red
+suspicious-site.net,2023-10-26,orange</pre>
 
                 <form method="POST" enctype="multipart/form-data">
                     {{ form.hidden_tag() }}
@@ -26,6 +36,10 @@ suspicious-site.net,2023-10-26</pre>
                                 {% endfor %}
                             </div>
                         {% endif %}
+                    </div>
+                    <div class="mb-3 form-check">
+                        {{ form.auto_enrich(class="form-check-input") }}
+                        {{ form.auto_enrich.label(class="form-check-label") }}
                     </div>
                     <div class="d-grid">
                         {{ form.submit(class="btn btn-success") }}
