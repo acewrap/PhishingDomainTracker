@@ -34,7 +34,7 @@ def check_purple_domains(app):
                     try:
                         resp = http.get(url, timeout=10, verify=False)
                         if resp.status_code == 200:
-                             if analyze_page_content(resp.text):
+                             if analyze_page_content(resp.text, base_url=resp.url):
                                  found_active = True
                                  break
                     except Exception:
@@ -145,7 +145,7 @@ def check_yellow_domains(app):
                         resp = http.get(f"{protocol}{domain.domain_name}", timeout=10, verify=False)
                         if resp.status_code == 200:
                             found_active = True
-                            if analyze_page_content(resp.text):
+                            if analyze_page_content(resp.text, base_url=resp.url):
                                 found_login = True
                             break
                     except Exception:

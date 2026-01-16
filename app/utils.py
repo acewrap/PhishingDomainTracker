@@ -14,6 +14,7 @@ from flask import flash, redirect, url_for
 from flask_login import current_user
 import socket
 import json
+from urllib.parse import urljoin
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -111,6 +112,10 @@ adapter = HTTPAdapter(max_retries=retry_strategy)
 http = requests.Session()
 http.mount("https://", adapter)
 http.mount("http://", adapter)
+# Set User-Agent to mimic a browser to avoid being blocked
+http.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+})
 
 WHOISXML_API_KEY = os.environ.get('WHOISXML_API_KEY')
 URLSCAN_API_KEY = os.environ.get('URLSCAN_API_KEY')
@@ -119,10 +124,11 @@ URLHAUS_API_KEY = os.environ.get('URLHAUS_API_KEY')
 GOOGLE_WEBRISK_KEY = os.environ.get('GOOGLE_WEBRISK_KEY')
 GOOGLE_PROJECT_ID = os.environ.get('GOOGLE_PROJECT_ID')
 
-def analyze_page_content(html_content):
+def analyze_page_content(html_content, base_url=None):
     """
     Analyzes the HTML content to check for login page indicators.
     Returns True if indicators are found, False otherwise.
+    If base_url is provided, external scripts will be fetched and scanned.
     """
     # Import inside function to avoid potential circular imports
     from app.models import ThreatTerm
@@ -149,10 +155,40 @@ def analyze_page_content(html_content):
         except Exception as e:
             logger.warning(f"Error fetching ThreatTerms: {e}")
 
-        for keyword in keywords:
-            if re.search(r'\b' + re.escape(keyword) + r'\b', text_content, re.IGNORECASE):
-                logger.info(f"Found keyword: {keyword}")
-                return True
+        # Helper to check keywords against text
+        def check_keywords(text, source_name="text"):
+            for keyword in keywords:
+                if re.search(r'\b' + re.escape(keyword) + r'\b', text, re.IGNORECASE):
+                    logger.info(f"Found keyword in {source_name}: {keyword}")
+                    return True
+            return False
+
+        # 1. Check visible text
+        if check_keywords(text_content, "visible text"):
+            return True
+
+        # 2. Check raw HTML (for hidden fields, attributes, inline scripts)
+        if check_keywords(html_content, "raw HTML"):
+            return True
+
+        # 3. Fetch and check external scripts
+        if base_url:
+            scripts = soup.find_all('script', src=True)
+            for script in scripts:
+                script_src = script.get('src')
+                if not script_src:
+                    continue
+
+                script_url = urljoin(base_url, script_src)
+                try:
+                    logger.info(f"Fetching external script: {script_url}")
+                    # Use a short timeout for scripts
+                    resp = http.get(script_url, timeout=5, verify=False)
+                    if resp.status_code == 200:
+                         if check_keywords(resp.text, f"external script {script_url}"):
+                             return True
+                except Exception as e:
+                    logger.warning(f"Failed to fetch/analyze script {script_url}: {e}")
 
         return False
     except Exception as e:
@@ -219,7 +255,7 @@ def fetch_and_check_domain(domain_name):
             # verify=False to handle self-signed certs potentially
             response = http.get(url, timeout=10, verify=False)
             if response.status_code == 200:
-                if analyze_page_content(response.text):
+                if analyze_page_content(response.text, base_url=response.url):
                     return True
         except requests.RequestException as e:
             logger.warning(f"Failed to fetch {url}: {e}")
