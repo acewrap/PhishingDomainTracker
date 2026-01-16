@@ -8,7 +8,7 @@ from flask_login import login_required, current_user
 from app.admin import admin_bp
 from app.models import User, APIKey, PhishingDomain, ThreatTerm
 from app.extensions import db, bcrypt
-from app.utils import admin_required, log_security_event
+from app.utils import admin_required, log_security_event, enrich_domain
 from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm
 from app.backup_service import generate_backup_data, perform_restore
 
@@ -146,6 +146,7 @@ def import_csv():
 
         added_count = 0
         skipped_count = 0
+        auto_enrich = form.auto_enrich.data
 
         for row in csv_input:
             domain_name = row.get('domain')
@@ -172,6 +173,28 @@ def import_csv():
                 is_active=True, # Default assumption for imports?
                 manual_status='Yellow' # Default to monitored/suspicious
             )
+
+            # Handle Category
+            category = row.get('category', '').lower().strip()
+            if category == 'green':
+                new_domain.manual_status = 'Allowlisted'
+            elif category == 'blue':
+                new_domain.manual_status = 'Internal/Pentest'
+            elif category == 'purple':
+                new_domain.manual_status = 'Takedown Requested'
+            elif category == 'grey':
+                new_domain.date_remediated = entered_date
+            elif category == 'red':
+                new_domain.is_active = True
+                new_domain.has_login_page = True
+            elif category == 'orange':
+                new_domain.has_mx_record = True
+            elif category == 'yellow':
+                new_domain.manual_status = 'Yellow'
+
+            if auto_enrich:
+                enrich_domain(new_domain)
+
             db.session.add(new_domain)
             added_count += 1
 

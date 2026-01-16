@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import SubmitField, StringField
+from wtforms import SubmitField, StringField, BooleanField
 from wtforms.validators import DataRequired
 
 class CSVUploadForm(FlaskForm):
@@ -8,6 +8,7 @@ class CSVUploadForm(FlaskForm):
         FileRequired(),
         FileAllowed(['csv'], 'CSV files only!')
     ])
+    auto_enrich = BooleanField('Auto Enrich?', default=True)
     submit = SubmitField('Import CSV')
 
 class RestoreForm(FlaskForm):
