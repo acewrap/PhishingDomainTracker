@@ -8,6 +8,14 @@ import socket
 
 scheduler = BackgroundScheduler()
 
+def append_action_note(domain, note):
+    ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    new_note = f"[{ts}] {note}"
+    if domain.action_taken:
+        domain.action_taken += f"\n{new_note}"
+    else:
+        domain.action_taken = new_note
+
 def init_scheduler(app):
     # Prevent adding jobs twice if reloader is active (though normally handled by run_simple(use_reloader=False) or check)
     if not scheduler.running:
@@ -41,14 +49,10 @@ def check_purple_domains(app):
                              if scan_res.get('blue_links'):
                                  found_active = True
                                  domain.manual_status = 'Confirmed Phish'
-                                 note = f"Linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
-                                 ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                                 new_note = f"[{ts}] {note}"
-                                 if domain.action_taken:
-                                     domain.action_taken += f"\n{new_note}"
-                                 else:
-                                     domain.action_taken = new_note
+                                 reason = f"Status changed to Confirmed Phish because linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
+                                 append_action_note(domain, reason)
                                  db.session.commit()
+                                 log_domain_event(domain.domain_name, 'Purple', 'Confirmed Phish', reason)
 
                              if found_active:
                                  break
@@ -63,9 +67,11 @@ def check_purple_domains(app):
                     domain.is_active = False
 
                     new_status = 'Orange' if domain.has_mx_record else 'Yellow'
+                    reason = "Status changed to Inactive because Login kit not detected (404 or content removed)"
+                    append_action_note(domain, reason)
                     db.session.commit()
 
-                    log_domain_event(domain.domain_name, old_status, new_status, "Login kit not detected (404 or content removed)")
+                    log_domain_event(domain.domain_name, old_status, new_status, reason)
 
             except Exception as e:
                 logger.error(f"Error checking purple domain {domain.domain_name}: {e}")
@@ -107,8 +113,10 @@ def check_red_domains(app):
                     old_status = 'Red'
                     domain.date_remediated = datetime.utcnow()
                     domain.is_active = False
+                    reason = "Status changed to Remediated (Grey) because Domain unreachable"
+                    append_action_note(domain, reason)
                     db.session.commit()
-                    log_domain_event(domain.domain_name, old_status, 'Grey', "Domain unreachable")
+                    log_domain_event(domain.domain_name, old_status, 'Grey', reason)
                 else:
                     db.session.commit()
 
@@ -133,11 +141,13 @@ def check_orange_domains(app):
                 old_records_str = domain.mx_records
 
                 if current_records_str != old_records_str:
-                     log_domain_event(domain.domain_name, 'Orange', 'Orange', "MX Records Modified")
+                     reason = "MX Records Modified"
+                     append_action_note(domain, reason)
                      domain.mx_records = current_records_str
                      if not current_records:
                          domain.has_mx_record = False
                      db.session.commit()
+                     log_domain_event(domain.domain_name, 'Orange', 'Orange', reason)
             except Exception as e:
                 logger.error(f"Error checking orange domain {domain.domain_name}: {e}")
 
@@ -169,14 +179,10 @@ def check_yellow_domains(app):
                             if scan_res.get('blue_links'):
                                 found_login = True
                                 domain.manual_status = 'Confirmed Phish'
-                                note = f"Linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
-                                ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                                new_note = f"[{ts}] {note}"
-                                if domain.action_taken:
-                                    domain.action_taken += f"\n{new_note}"
-                                else:
-                                    domain.action_taken = new_note
+                                reason = f"Status changed to Confirmed Phish because linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
+                                append_action_note(domain, reason)
                                 db.session.commit()
+                                log_domain_event(domain.domain_name, 'Yellow', 'Confirmed Phish', reason)
 
                             break
                     except Exception:
@@ -192,7 +198,9 @@ def check_yellow_domains(app):
                     domain.has_login_page = True # Force Red
 
                     reason = "Login/Threat detected" if found_login else "Site responded 200 OK"
-                    log_domain_event(domain.domain_name, 'Yellow', 'Red', reason)
+                    full_reason = f"Status changed to Red because {reason}"
+                    append_action_note(domain, full_reason)
+                    log_domain_event(domain.domain_name, 'Yellow', 'Red', full_reason)
                     db.session.commit()
 
             except Exception as e:
@@ -216,14 +224,10 @@ def check_grey_domains(app):
                             scan_res = scan_page_content(resp.text, base_url=resp.url)
                             if scan_res.get('blue_links'):
                                 domain.manual_status = 'Confirmed Phish'
-                                note = f"Linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
-                                ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                                new_note = f"[{ts}] {note}"
-                                if domain.action_taken:
-                                    domain.action_taken += f"\n{new_note}"
-                                else:
-                                    domain.action_taken = new_note
+                                reason = f"Status changed to Confirmed Phish because linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
+                                append_action_note(domain, reason)
                                 db.session.commit()
+                                log_domain_event(domain.domain_name, 'Grey', 'Confirmed Phish', reason)
                             break
                     except Exception:
                         pass
@@ -235,7 +239,9 @@ def check_grey_domains(app):
                     domain.is_active = True
                     domain.has_login_page = True # Force Red
 
-                    log_domain_event(domain.domain_name, old_status, 'Red', "Domain back to life")
+                    reason = "Status changed to Red because Domain back to life"
+                    append_action_note(domain, reason)
+                    log_domain_event(domain.domain_name, old_status, 'Red', reason)
                     db.session.commit()
 
             except Exception as e:

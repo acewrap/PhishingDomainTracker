@@ -83,6 +83,9 @@ def add_domain():
 
         db.session.add(new_domain)
         db.session.commit()
+
+        log_security_event('Domain Added', current_user.username, request.remote_addr, 'info', domain_name=domain_name)
+
         flash(f'Domain {domain_name} added successfully.', 'success')
         return redirect(url_for('index'))
     return render_template('add_domain.html', form=form)
@@ -107,6 +110,7 @@ def enrich_domain_route(id):
     domain = PhishingDomain.query.get_or_404(id)
     enrich_domain(domain)
     db.session.commit()
+    log_security_event('Enrichment Triggered', current_user.username, request.remote_addr, 'info', domain_name=domain.domain_name)
     flash(f'Enrichment triggered for {domain.domain_name}', 'info')
     return redirect(url_for('domain_details', id=domain.id))
 
@@ -193,6 +197,8 @@ def report_phishing_route(id):
     # Perform reporting
     results = report_to_vendors(domain)
 
+    log_security_event('Phishing Reported to Vendors', current_user.username, request.remote_addr, 'info', domain_name=domain.domain_name, results=results)
+
     return jsonify({'success': True, 'results': results})
 
 @app.route('/enrich_domains', methods=['POST'])
@@ -209,6 +215,7 @@ def enrich_domains():
         domains = PhishingDomain.query.filter(PhishingDomain.id.in_(domain_ids)).all()
         for domain in domains:
             enrich_domain(domain)
+            log_security_event('Enrichment Triggered', current_user.username, request.remote_addr, 'info', domain_name=domain.domain_name)
         db.session.commit()
         flash(f'Enrichment triggered for {len(domains)} domains.', 'success')
     else:
@@ -221,9 +228,12 @@ def delete_domains():
     domain_ids = request.form.getlist('domain_ids')
     if domain_ids:
         # Check if "delete_all" or similar logic is needed, but assuming ID list for now
-        PhishingDomain.query.filter(PhishingDomain.id.in_(domain_ids)).delete(synchronize_session=False)
+        domains = PhishingDomain.query.filter(PhishingDomain.id.in_(domain_ids)).all()
+        for domain in domains:
+            log_security_event('Domain Deleted', current_user.username, request.remote_addr, 'info', domain_name=domain.domain_name)
+            db.session.delete(domain)
         db.session.commit()
-        flash(f'{len(domain_ids)} domains deleted successfully.', 'success')
+        flash(f'{len(domains)} domains deleted successfully.', 'success')
     else:
         flash('No domains selected for deletion.', 'warning')
     return redirect(url_for('index'))

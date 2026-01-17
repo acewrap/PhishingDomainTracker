@@ -196,6 +196,7 @@ def import_csv():
                 enrich_domain(new_domain)
 
             db.session.add(new_domain)
+            log_security_event('Domain Imported', current_user.username, request.remote_addr, 'info', domain_name=new_domain.domain_name)
             added_count += 1
 
         try:
