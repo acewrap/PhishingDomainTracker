@@ -111,6 +111,7 @@ When a domain is added (via UI or API):
     *   **WhoisXML:** Fetches registrar, registration date, and creation data.
     *   **Urlscan.io:** Scans the URL to generate a screenshot and identify hosting/IP information.
     *   **MX Check:** Queries DNS for MX records.
+    *   **Infrastructure Fingerprinting:** Performs JARM scan, Favicon hashing (MMH3), ASN lookup, and Artifact analysis.
 3.  **Initial Assessment:** The domain is immediately assigned a threat status (e.g., Red if a login page is found, Orange if MX exists).
 
 ### 2. Automated Monitoring (The Scheduler)
@@ -133,11 +134,27 @@ Analysts can use the "Report Phishing" feature on the domain details page. This 
 
 ---
 
+## Correlation Engine
+
+The application includes a correlation engine to identify relationships between domains.
+
+### Pivot Points
+*   **IP Address:** Domains sharing the same hosting IP.
+*   **ASN:** Domains hosted within the same Autonomous System.
+*   **Favicon:** Matches based on MMH3 hash of the favicon.
+*   **JARM:** Matches based on SSL/TLS server configuration fingerprints.
+*   **HTML Artifacts:** Matches based on high overlap (>50%) of external script and CSS filenames.
+
+### Detection Rules
+*   **Blue Domain Link:** A specialized detection rule scans page content for linked images (e.g., logos) hosted on domains marked as **Blue (Internal/Pentest)**. If found, the domain is automatically flagged as **Confirmed Phish (Red)**.
+
+---
+
 ## Data Model
 
 The database schema is designed for simplicity using SQLite.
 
-*   **PhishingDomain**: The central entity containing domain metadata (`domain_name`, `registrar`, `ip_address`), status flags (`is_active`, `has_login_page`, `manual_status`), and timestamps (`date_entered`, `date_remediated`).
+*   **PhishingDomain**: The central entity containing domain metadata (`domain_name`, `registrar`, `ip_address`), status flags (`is_active`, `has_login_page`, `manual_status`), and timestamps (`date_entered`, `date_remediated`). New fields support correlation: `asn_number`, `favicon_mmh3`, `jarm_hash`, `html_artifacts`.
 *   **User**: Application users. Includes fields for authentication (`password_hash`), security (`failed_login_attempts`, `password_expired`), and role (`is_admin`).
 *   **APIKey**: Linked to users. Stores the `access_key` and a hashed version of the `secret_key` (`secret_hash`) for secure programmatic access.
 *   **ThreatTerm**: A dynamic list of keywords (e.g., "password", "login", "urgent") used by the scanner to detect phishing content on analyzed pages.

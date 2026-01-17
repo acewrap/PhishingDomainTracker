@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.models import PhishingDomain
 from app.extensions import db
-from app.utils import fetch_and_check_domain, check_mx_record, log_domain_event, http, logger, analyze_page_content
+from app.utils import fetch_and_check_domain, check_mx_record, log_domain_event, http, logger, analyze_page_content, scan_page_content
 import requests
 from datetime import datetime
 import socket
@@ -34,8 +34,23 @@ def check_purple_domains(app):
                     try:
                         resp = http.get(url, timeout=10, verify=False)
                         if resp.status_code == 200:
-                             if analyze_page_content(resp.text, base_url=resp.url):
+                             scan_res = scan_page_content(resp.text, base_url=resp.url)
+                             if scan_res.get('is_login'):
                                  found_active = True
+
+                             if scan_res.get('blue_links'):
+                                 found_active = True
+                                 domain.manual_status = 'Confirmed Phish'
+                                 note = f"Linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
+                                 ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                                 new_note = f"[{ts}] {note}"
+                                 if domain.action_taken:
+                                     domain.action_taken += f"\n{new_note}"
+                                 else:
+                                     domain.action_taken = new_note
+                                 db.session.commit()
+
+                             if found_active:
                                  break
                     except Exception:
                         pass
@@ -147,8 +162,22 @@ def check_yellow_domains(app):
                         resp = http.get(f"{protocol}{domain.domain_name}", timeout=10, verify=False)
                         if resp.status_code == 200:
                             found_active = True
-                            if analyze_page_content(resp.text, base_url=resp.url):
+                            scan_res = scan_page_content(resp.text, base_url=resp.url)
+                            if scan_res.get('is_login'):
                                 found_login = True
+
+                            if scan_res.get('blue_links'):
+                                found_login = True
+                                domain.manual_status = 'Confirmed Phish'
+                                note = f"Linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
+                                ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                                new_note = f"[{ts}] {note}"
+                                if domain.action_taken:
+                                    domain.action_taken += f"\n{new_note}"
+                                else:
+                                    domain.action_taken = new_note
+                                db.session.commit()
+
                             break
                     except Exception:
                         pass
@@ -184,6 +213,17 @@ def check_grey_domains(app):
                         resp = http.get(f"{protocol}{domain.domain_name}", timeout=10, verify=False)
                         if resp.status_code == 200:
                             found_active = True
+                            scan_res = scan_page_content(resp.text, base_url=resp.url)
+                            if scan_res.get('blue_links'):
+                                domain.manual_status = 'Confirmed Phish'
+                                note = f"Linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
+                                ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                                new_note = f"[{ts}] {note}"
+                                if domain.action_taken:
+                                    domain.action_taken += f"\n{new_note}"
+                                else:
+                                    domain.action_taken = new_note
+                                db.session.commit()
                             break
                     except Exception:
                         pass

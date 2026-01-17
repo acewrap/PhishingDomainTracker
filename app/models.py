@@ -39,6 +39,13 @@ class PhishingDomain(db.Model):
     mx_records = db.Column(db.Text, nullable=True)
     manual_status = db.Column(db.String(50), nullable=True)
 
+    # Correlation / Fingerprinting
+    asn_number = db.Column(db.String(50), nullable=True)
+    asn_org = db.Column(db.String(255), nullable=True)
+    favicon_mmh3 = db.Column(db.String(100), nullable=True)
+    jarm_hash = db.Column(db.String(255), nullable=True)
+    html_artifacts = db.Column(db.Text, nullable=True)
+
     @property
     def threat_status(self):
         # 1. Manual Overrides (High Priority)
@@ -46,6 +53,8 @@ class PhishingDomain(db.Model):
             return 'Green'
         if self.manual_status == 'Internal/Pentest':
             return 'Blue'
+        if self.manual_status == 'Confirmed Phish':
+            return 'Red'
 
         # 2. Remediated (Historical)
         if self.date_remediated:

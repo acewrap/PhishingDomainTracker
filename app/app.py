@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import db, migrate, bcrypt, login_manager
 from app.models import PhishingDomain, User
-from app.utils import enrich_domain, report_to_vendors, log_security_event
+from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites
 from app.forms import AddDomainForm
 from datetime import datetime
 import os
@@ -92,11 +92,14 @@ def add_domain():
 def domain_details(id):
     domain = PhishingDomain.query.get_or_404(id)
 
+    # Infrastructure Correlations
+    related_sites = find_related_sites(id)
+
     can_report = bool(os.environ.get('PHISHTANK_API_KEY') or
                       os.environ.get('URLHAUS_API_KEY') or
                       (os.environ.get('GOOGLE_WEBRISK_KEY') and os.environ.get('GOOGLE_PROJECT_ID')))
 
-    return render_template('domain_detail.html', domain=domain, can_report=can_report)
+    return render_template('domain_detail.html', domain=domain, can_report=can_report, related_sites=related_sites)
 
 @app.route('/enrich/<int:id>', methods=['POST'])
 @login_required
