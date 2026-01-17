@@ -8,7 +8,7 @@ A secure web application to track and monitor phishing domains targeting your or
 - **Enrichment**: Automatic enrichment using WhoisXML and Urlscan.io.
 - **Monitoring**: Track active status, login pages, and screenshots.
 - **Automated Lifecycle**: Background checks for different domain categories (Red, Orange, Yellow, Purple, Grey).
-- **Threat Detection**: Detect phishing kits and keywords (e.g., "password", "uAPI") using customizable Threat Terms.
+- **Threat Detection**: Detect phishing kits and keywords (e.g., "password", "Company Product") using customizable Threat Terms.
 - **Remediation Tracking**: Log actions taken and remediation dates.
 - **Reporting**: Report confirmed phishing domains to vendors (Google Web Risk, URLhaus) with a single click.
 - **User Authentication**: Secure login, password rotation policies, and admin user management.
