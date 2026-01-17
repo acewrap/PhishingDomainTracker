@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - Python 3.8+
-- SQLite (default) or other SQLAlchemy-supported database.
+- SQLite (default) or PostgreSQL (recommended for production).
 
 ## Setup
 1. Clone the repository.
@@ -14,6 +14,7 @@
    - `FLASK_APP`: `app.app`
    - `SECRET_KEY`: A strong random string.
    - `DATABASE_URI`: (Optional) Database connection string. Defaults to `sqlite:///domains.db`.
+     - For PostgreSQL: `postgresql://user:password@localhost/dbname`
    - `WHOISXML_API_KEY`: (Optional) API key for WhoisXML domain enrichment.
    - `URLSCAN_API_KEY`: (Optional) API key for Urlscan.io enrichment.
    - `PHISHTANK_API_KEY`: (Optional) API key for PhishTank integration.
@@ -42,9 +43,24 @@ flask shell
 ```
 *(Note: I have already performed this step in the current environment).*
 
-## Running the Server
+## Running the Server (Development)
 ```bash
 flask run --host=0.0.0.0
+```
+
+## Running the Server (Production)
+Use Gunicorn with the provided configuration file for a robust production setup.
+
+```bash
+gunicorn -c gunicorn_config.py wsgi:app
+```
+
+### Running the Scheduler
+In production, run the background scheduler as a separate process to ensure consistent domain monitoring.
+
+```bash
+export FLASK_APP=app.app
+flask run-scheduler
 ```
 
 ## Security Notes
