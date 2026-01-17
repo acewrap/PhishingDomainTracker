@@ -16,6 +16,8 @@
 - **Add Domain:** Submit a new domain for tracking.
 - **Reports:** Export domain data to CSV.
 
+![Dashboard](docs/images/dashboard.png)
+
 ## Reporting Phishing
 - Navigate to the **Domain Details** page for a specific domain.
 - In the "Manual Updates" section, click **Report to Security Vendors**.
@@ -28,3 +30,5 @@ The **Domain Details** page includes an "Infrastructure Correlations" section.
 - **Related Domains:** Displays a list of other tracked domains that share infrastructure (IP, ASN, Favicon, JARM, or Artifacts).
 - **Confidence Score:** A score indicating the strength of the relationship. Higher scores suggest cloned or related infrastructure.
 - **Blue Domain Alerts:** If a domain is found hosting images from your internal (Blue) domains, it will be automatically flagged as **Confirmed Phish** and marked in the domain notes.
+
+![Correlation Analysis](docs/images/domain_details.png)

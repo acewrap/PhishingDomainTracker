@@ -11,8 +11,11 @@ A secure web application to track and monitor phishing domains targeting your or
 - **Threat Detection**: Detect phishing kits and keywords (e.g., "password", "Company Product") using customizable Threat Terms.
 - **Remediation Tracking**: Log actions taken and remediation dates.
 - **Reporting**: Report confirmed phishing domains to vendors (Google Web Risk, URLhaus) with a single click.
+- **Infrastructure Correlation**: Automatically identify related phishing domains based on shared infrastructure (IP, ASN, Favicon, JARM).
 - **User Authentication**: Secure login, password rotation policies, and admin user management.
 - **Programmatic API**: Secure API access using API Key & Secret.
+
+![Dashboard](docs/images/dashboard.png)
 
 ## Documentation
 
@@ -59,6 +62,18 @@ Logs are written to `logs/syslog.log` in a Syslog-compatible KV format, rotated 
 ## Threat Terms Management
 
 Admins can manage a list of "Threat Terms" via the Admin menu. These terms are used during scanning (Yellow/Grey checks and initial enrichment) to detect potential phishing content.
+
+## Infrastructure Correlation
+
+The application employs advanced fingerprinting techniques to detect related infrastructure. When viewing a domain, the "Infrastructure Correlations" section displays other tracked domains that share:
+
+*   **IP Address**: Co-hosting on the same server.
+*   **ASN**: Hosting on the same Autonomous System.
+*   **Favicon (MMH3 Hash)**: Using the same favicon icon.
+*   **JARM Hash**: Identical TLS configuration fingerprints.
+*   **HTML Artifacts**: Overlapping scripts or stylesheets.
+
+![Infrastructure Correlation](docs/images/domain_details.png)
 
 ## API Integrations
 
