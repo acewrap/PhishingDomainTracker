@@ -59,3 +59,11 @@ You can bulk import domains using a CSV file.
    - **WARNING:** This will **delete all existing data** in the database and replace it with the backup content. This action cannot be undone.
 
 **Note:** Backup and Restore operations can also be performed programmatically via the API (see `API.md`).
+
+## Correlation Engine & Threat Detection
+The system includes an advanced correlation engine that analyzes domains for shared infrastructure:
+- **Fingerprinting:** Collects IP, ASN, Registrar, Favicon Hash (MMH3), JARM Hash, and HTML Artifacts (scripts/CSS).
+- **Correlation:** Automatically identifies related sites based on matching pivots (e.g., same IP, same Favicon, overlapping artifacts).
+- **Blue Domain Rule:** If any tracked domain links to an image hosted on an 'Internal/Pentest' (Blue) domain, it is automatically flagged as 'Confirmed Phish' (Red) with a note added to the record.
+
+This helps identify larger campaigns and cloned infrastructure.

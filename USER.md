@@ -22,3 +22,9 @@
 - Enter your password to confirm the action.
 - The system will attempt to report the domain to configured security vendors (e.g., Google Web Risk, URLhaus).
 - A status report will be displayed indicating success or failure for each vendor.
+
+## Correlation & Analysis
+The **Domain Details** page includes an "Infrastructure Correlations" section.
+- **Related Domains:** Displays a list of other tracked domains that share infrastructure (IP, ASN, Favicon, JARM, or Artifacts).
+- **Confidence Score:** A score indicating the strength of the relationship. Higher scores suggest cloned or related infrastructure.
+- **Blue Domain Alerts:** If a domain is found hosting images from your internal (Blue) domains, it will be automatically flagged as **Confirmed Phish** and marked in the domain notes.

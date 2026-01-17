@@ -151,69 +151,137 @@ def get_threat_terms():
              return _THREAT_TERMS_CACHE
         return []
 
-def analyze_page_content(html_content, base_url=None):
+# Global cache for blue domains
+_BLUE_DOMAINS_CACHE = None
+_BLUE_DOMAINS_CACHE_TIMESTAMP = 0
+
+def get_blue_domains():
+    global _BLUE_DOMAINS_CACHE, _BLUE_DOMAINS_CACHE_TIMESTAMP
+    import time
+    from app.models import PhishingDomain
+
+    now = time.time()
+    if _BLUE_DOMAINS_CACHE is not None and (now - _BLUE_DOMAINS_CACHE_TIMESTAMP < _CACHE_TTL):
+        return _BLUE_DOMAINS_CACHE
+
+    try:
+        domains = [d.domain_name for d in PhishingDomain.query.filter_by(manual_status='Internal/Pentest').all()]
+        _BLUE_DOMAINS_CACHE = domains
+        _BLUE_DOMAINS_CACHE_TIMESTAMP = now
+        return domains
+    except Exception as e:
+        logger.warning(f"Error fetching Blue Domains: {e}")
+        if _BLUE_DOMAINS_CACHE is not None:
+             return _BLUE_DOMAINS_CACHE
+        return []
+
+def scan_page_content(html_content, base_url=None):
     """
-    Analyzes the HTML content to check for login page indicators.
-    Returns True if indicators are found, False otherwise.
-    If base_url is provided, external scripts will be fetched and scanned.
+    Analyzes the HTML content to check for login page indicators, blue domain links, and artifacts.
+    Returns a dict: {'is_login': bool, 'blue_links': list, 'scripts': list, 'stylesheets': list, 'favicon_url': str}
     """
+    result = {'is_login': False, 'blue_links': [], 'scripts': [], 'stylesheets': [], 'favicon_url': None}
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
 
+        # --- Artifact Extraction ---
+        # Scripts
+        for script in soup.find_all('script', src=True):
+            src = script.get('src')
+            if src:
+                filename = src.split('/')[-1].split('?')[0]
+                if filename and filename not in result['scripts']:
+                    result['scripts'].append(filename)
+
+        # CSS
+        for link in soup.find_all('link', rel='stylesheet', href=True):
+            href = link.get('href')
+            if href:
+                filename = href.split('/')[-1].split('?')[0]
+                if filename and filename not in result['stylesheets']:
+                    result['stylesheets'].append(filename)
+
+        # Favicon
+        icon_link = soup.find('link', rel=lambda x: x and 'icon' in x.lower(), href=True)
+        if icon_link:
+            result['favicon_url'] = icon_link.get('href')
+
+        # --- Blue Domain Check ---
+        blue_domains = get_blue_domains()
+        if blue_domains:
+            # Check img src
+            for img in soup.find_all('img', src=True):
+                src = img.get('src')
+                if not src: continue
+                for bd in blue_domains:
+                    if bd in src: # Simple substring match
+                        if bd not in result['blue_links']:
+                            result['blue_links'].append(bd)
+                        logger.info(f"Found Blue Domain link: {bd} in {src}")
+
+        # --- Login Page Check ---
         # Check for <input type="password"> case-insensitive
         inputs = soup.find_all('input')
         for inp in inputs:
             if inp.get('type', '').lower() == 'password':
                 logger.info("Found password input field.")
-                return True
+                result['is_login'] = True
+                break
 
-        # Check for specific keywords (case-insensitive)
-        text_content = soup.get_text()
-        keywords = ["uAPI", "password", "username", "PCC", "HAP", "host access profile"]
+        if not result['is_login']:
+            # Check for specific keywords (case-insensitive)
+            text_content = soup.get_text()
+            keywords = ["uAPI", "password", "username", "PCC", "HAP", "host access profile"]
 
-        # Add dynamic threat terms
-        keywords.extend(get_threat_terms())
+            # Add dynamic threat terms
+            keywords.extend(get_threat_terms())
 
-        # Helper to check keywords against text
-        def check_keywords(text, source_name="text"):
-            for keyword in keywords:
-                compiled_regex = get_compiled_regex(keyword)
-                if compiled_regex.search(text):
-                    logger.info(f"Found keyword in {source_name}: {keyword}")
-                    return True
-            return False
+            # Helper to check keywords against text
+            def check_keywords(text, source_name="text"):
+                for keyword in keywords:
+                    compiled_regex = get_compiled_regex(keyword)
+                    if compiled_regex.search(text):
+                        logger.info(f"Found keyword in {source_name}: {keyword}")
+                        return True
+                return False
 
-        # 1. Check visible text
-        if check_keywords(text_content, "visible text"):
-            return True
+            # 1. Check visible text
+            if check_keywords(text_content, "visible text"):
+                result['is_login'] = True
+            # 2. Check raw HTML (for hidden fields, attributes, inline scripts)
+            elif check_keywords(html_content, "raw HTML"):
+                result['is_login'] = True
+            # 3. Fetch and check external scripts
+            elif base_url:
+                scripts = soup.find_all('script', src=True)
+                for script in scripts:
+                    script_src = script.get('src')
+                    if not script_src:
+                        continue
 
-        # 2. Check raw HTML (for hidden fields, attributes, inline scripts)
-        if check_keywords(html_content, "raw HTML"):
-            return True
+                    script_url = urljoin(base_url, script_src)
+                    try:
+                        # logger.info(f"Fetching external script: {script_url}")
+                        # Use a short timeout for scripts
+                        resp = http.get(script_url, timeout=5, verify=False)
+                        if resp.status_code == 200:
+                            if check_keywords(resp.text, f"external script {script_url}"):
+                                result['is_login'] = True
+                                break
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch/analyze script {script_url}: {e}")
 
-        # 3. Fetch and check external scripts
-        if base_url:
-            scripts = soup.find_all('script', src=True)
-            for script in scripts:
-                script_src = script.get('src')
-                if not script_src:
-                    continue
-
-                script_url = urljoin(base_url, script_src)
-                try:
-                    logger.info(f"Fetching external script: {script_url}")
-                    # Use a short timeout for scripts
-                    resp = http.get(script_url, timeout=5, verify=False)
-                    if resp.status_code == 200:
-                         if check_keywords(resp.text, f"external script {script_url}"):
-                             return True
-                except Exception as e:
-                    logger.warning(f"Failed to fetch/analyze script {script_url}: {e}")
-
-        return False
+        return result
     except Exception as e:
         logger.error(f"Error parsing HTML content: {e}")
-        return False
+        return result
+
+def analyze_page_content(html_content, base_url=None):
+    """
+    Legacy wrapper. Returns True if is_login is True.
+    """
+    res = scan_page_content(html_content, base_url)
+    return res['is_login']
 
 def admin_required(f):
     @wraps(f)
@@ -263,8 +331,8 @@ def check_mx_record(domain_name):
 
 def fetch_and_check_domain(domain_name):
     """
-    Fetches the domain content (trying https then http) and checks for login indicators.
-    Returns True if login page detected, False otherwise.
+    Fetches the domain content (trying https then http) and checks for login indicators and blue links.
+    Returns scan result dict or None if fetch failed.
     """
     protocols = ['https://', 'http://']
 
@@ -275,13 +343,12 @@ def fetch_and_check_domain(domain_name):
             # verify=False to handle self-signed certs potentially
             response = http.get(url, timeout=10, verify=False)
             if response.status_code == 200:
-                if analyze_page_content(response.text, base_url=response.url):
-                    return True
+                return scan_page_content(response.text, base_url=response.url)
         except requests.RequestException as e:
             logger.warning(f"Failed to fetch {url}: {e}")
             continue
 
-    return False
+    return None
 
 def enrich_domain(domain_obj):
     """
@@ -429,13 +496,92 @@ def enrich_domain(domain_obj):
     else:
         logger.warning("URLSCAN_API_KEY not set. Skipping Urlscan enrichment.")
         
-    # 3. Check for login page indicators
-    if fetch_and_check_domain(domain_obj.domain_name):
-        logger.info(f"Login page detected for {domain_obj.domain_name}")
-        domain_obj.has_login_page = True
+    # 3. Check for login page indicators and blue links
+    scan_result = fetch_and_check_domain(domain_obj.domain_name)
+    if scan_result:
+        if scan_result.get('is_login'):
+            logger.info(f"Login page detected for {domain_obj.domain_name}")
+            domain_obj.has_login_page = True
+        else:
+            logger.info(f"No login page detected for {domain_obj.domain_name}")
+            domain_obj.has_login_page = False
+
+        # Check Blue Links
+        if scan_result.get('blue_links'):
+            logger.warning(f"Blue Domain links found: {scan_result['blue_links']}")
+            domain_obj.manual_status = 'Confirmed Phish'
+
+            note = f"Linked images to Blue domains: {', '.join(scan_result['blue_links'])}"
+            ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            new_note = f"[{ts}] {note}"
+            if domain_obj.action_taken:
+                domain_obj.action_taken += f"\n{new_note}"
+            else:
+                domain_obj.action_taken = new_note
+
+        # Artifacts
+        artifacts = {
+            'scripts': scan_result.get('scripts', []),
+            'stylesheets': scan_result.get('stylesheets', [])
+        }
+        domain_obj.html_artifacts = json.dumps(artifacts)
+
+        # Favicon Hashing
+        favicon_url = scan_result.get('favicon_url')
+        if not favicon_url:
+            favicon_url = f"http://{domain_obj.domain_name}/favicon.ico" # Fallback
+        elif not favicon_url.startswith('http'):
+             # Handle relative URL
+             favicon_url = urljoin(f"http://{domain_obj.domain_name}", favicon_url)
+
+        try:
+             logger.info(f"Fetching favicon: {favicon_url}")
+             resp = http.get(favicon_url, timeout=5, verify=False)
+             if resp.status_code == 200:
+                 import mmh3
+                 import codecs
+                 # Shodan style: base64 encoded content with newlines
+                 b64_content = codecs.encode(resp.content, "base64")
+                 favicon_hash = mmh3.hash(b64_content)
+                 domain_obj.favicon_mmh3 = str(favicon_hash)
+                 logger.info(f"Favicon Hash: {favicon_hash}")
+        except Exception as e:
+             logger.warning(f"Favicon fetch/hash failed: {e}")
+
     else:
-        logger.info(f"No login page detected for {domain_obj.domain_name}")
-        domain_obj.has_login_page = False
+        # Fetch failed
+        logger.info(f"Could not fetch {domain_obj.domain_name} to check for login/blue links")
+
+    # Resolve IP if missing (needed for ASN)
+    if not domain_obj.ip_address:
+        try:
+            domain_obj.ip_address = socket.gethostbyname(domain_obj.domain_name)
+        except Exception:
+            pass
+
+    # ASN Lookup
+    if domain_obj.ip_address:
+         try:
+             from ipwhois import IPWhois
+             obj = IPWhois(domain_obj.ip_address)
+             res = obj.lookup_rdap(depth=1)
+             domain_obj.asn_number = str(res.get('asn'))
+             domain_obj.asn_org = res.get('asn_description') or res.get('asn_registry')
+         except Exception as e:
+             logger.warning(f"ASN lookup failed: {e}")
+
+    # JARM Fingerprinting
+    try:
+        from jarm.scanner.scanner import Scanner
+        # Scanner.scan is a sync wrapper around async
+        logger.info(f"Running JARM scan for {domain_obj.domain_name}")
+        jarm_hash, _, _ = Scanner.scan(domain_obj.domain_name, 443)
+        if jarm_hash and "00000000000000000000" not in jarm_hash: # Check for complete failure/empty
+             domain_obj.jarm_hash = jarm_hash
+        else:
+             logger.info("JARM scan returned empty/failure hash.")
+    except Exception as e:
+         logger.warning(f"JARM scan failed: {e}")
 
     # 4. Check for MX records
     mx_records = check_mx_record(domain_obj.domain_name)
@@ -535,3 +681,96 @@ def report_to_vendors(domain_obj):
         results['PhishTank'] = 'Skipped (Missing Key)'
 
     return results
+
+def find_related_sites(domain_id):
+    """
+    Finds related domains based on shared infrastructure and artifacts.
+    Returns a list of dicts: [{'domain': domain_obj, 'score': int, 'pivots': list}]
+    """
+    from app.models import PhishingDomain
+    source = PhishingDomain.query.get(domain_id)
+    if not source:
+        return []
+
+    related = []
+    candidates = PhishingDomain.query.filter(PhishingDomain.id != domain_id).all()
+
+    source_artifacts = {}
+    if source.html_artifacts:
+        try:
+            source_artifacts = json.loads(source.html_artifacts)
+        except:
+            pass
+
+    source_scripts = set(source_artifacts.get('scripts', []))
+    source_css = set(source_artifacts.get('stylesheets', []))
+
+    for candidate in candidates:
+        score = 0
+        pivots = []
+
+        # IP Match
+        if source.ip_address and candidate.ip_address and source.ip_address == candidate.ip_address:
+            score += 20
+            pivots.append("Same IP")
+
+        # ASN Match
+        if source.asn_number and candidate.asn_number and source.asn_number == candidate.asn_number:
+            score += 10
+            pivots.append(f"Same ASN")
+
+        # Favicon Match
+        if source.favicon_mmh3 and candidate.favicon_mmh3 and source.favicon_mmh3 == candidate.favicon_mmh3:
+            score += 50
+            pivots.append("Same Favicon")
+
+        # JARM Match
+        if source.jarm_hash and candidate.jarm_hash and source.jarm_hash == candidate.jarm_hash:
+             score += 30
+             pivots.append("Same JARM")
+
+        # Registrar Match
+        if source.registrar and candidate.registrar and source.registrar == candidate.registrar:
+            score += 5
+            pivots.append("Same Registrar")
+
+        # Artifact Overlap
+        cand_artifacts = {}
+        if candidate.html_artifacts:
+            try:
+                cand_artifacts = json.loads(candidate.html_artifacts)
+            except:
+                pass
+
+        cand_scripts = set(cand_artifacts.get('scripts', []))
+        cand_css = set(cand_artifacts.get('stylesheets', []))
+
+        # Scripts
+        if source_scripts and cand_scripts:
+            intersection = source_scripts.intersection(cand_scripts)
+            union = source_scripts.union(cand_scripts)
+            if len(union) > 0:
+                overlap_pct = len(intersection) / len(union)
+                if overlap_pct > 0.5:
+                    score += 20
+                    pivots.append(f"Script Overlap ({int(overlap_pct*100)}%)")
+
+        # CSS
+        if source_css and cand_css:
+            intersection = source_css.intersection(cand_css)
+            union = source_css.union(cand_css)
+            if len(union) > 0:
+                overlap_pct = len(intersection) / len(union)
+                if overlap_pct > 0.5:
+                    score += 20
+                    pivots.append(f"CSS Overlap ({int(overlap_pct*100)}%)")
+
+        if score >= 20:
+             related.append({
+                 'domain': candidate,
+                 'score': score,
+                 'pivots': pivots
+             })
+
+    related.sort(key=lambda x: x['score'], reverse=True)
+    return related
