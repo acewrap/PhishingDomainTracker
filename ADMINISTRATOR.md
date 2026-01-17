@@ -31,6 +31,8 @@ On the main dashboard, you can select multiple domains using the checkboxes and 
 2. **Add Term:** Enter a keyword (e.g., "CompanyXYZ", "HR Portal") that implies a phishing attempt against your organization.
 3. **Delete Term:** Remove obsolete terms.
 
+![Threat Terms](docs/images/threat_terms.png)
+
 These terms are used by the automated scheduler and enrichment process to scan domain content. If a match is found on a non-allowlisted domain, it may be flagged as 'Red'.
 
 ## Automated Scheduler
@@ -51,6 +53,8 @@ You can bulk import domains using a CSV file.
 1. Navigate to **Admin > Import CSV**.
 2. Upload a CSV file. The file must have a header row with at least a `domain` column. An optional `entered_date` (YYYY-MM-DD) column is also supported.
 3. Duplicates will be automatically skipped.
+
+![Bulk Import](docs/images/bulk_import.png)
 
 ### Database Backup & Restore
 1. Navigate to **Admin > Backup/Restore**.
