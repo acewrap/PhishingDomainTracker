@@ -125,15 +125,38 @@ URLHAUS_API_KEY = os.environ.get('URLHAUS_API_KEY')
 GOOGLE_WEBRISK_KEY = os.environ.get('GOOGLE_WEBRISK_KEY')
 GOOGLE_PROJECT_ID = os.environ.get('GOOGLE_PROJECT_ID')
 
+# Global cache for threat terms
+_THREAT_TERMS_CACHE = None
+_THREAT_TERMS_CACHE_TIMESTAMP = 0
+_CACHE_TTL = 300  # 5 minutes
+
+def get_threat_terms():
+    global _THREAT_TERMS_CACHE, _THREAT_TERMS_CACHE_TIMESTAMP
+    import time
+    from app.models import ThreatTerm
+
+    now = time.time()
+    if _THREAT_TERMS_CACHE is not None and (now - _THREAT_TERMS_CACHE_TIMESTAMP < _CACHE_TTL):
+        return _THREAT_TERMS_CACHE
+
+    try:
+        terms = [t.term for t in ThreatTerm.query.all()]
+        _THREAT_TERMS_CACHE = terms
+        _THREAT_TERMS_CACHE_TIMESTAMP = now
+        return terms
+    except Exception as e:
+        logger.warning(f"Error fetching ThreatTerms: {e}")
+        # Return cached terms if available even if stale
+        if _THREAT_TERMS_CACHE is not None:
+             return _THREAT_TERMS_CACHE
+        return []
+
 def analyze_page_content(html_content, base_url=None):
     """
     Analyzes the HTML content to check for login page indicators.
     Returns True if indicators are found, False otherwise.
     If base_url is provided, external scripts will be fetched and scanned.
     """
-    # Import inside function to avoid potential circular imports
-    from app.models import ThreatTerm
-
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -149,12 +172,7 @@ def analyze_page_content(html_content, base_url=None):
         keywords = ["uAPI", "password", "username", "PCC", "HAP", "host access profile"]
 
         # Add dynamic threat terms
-        try:
-            db_terms = ThreatTerm.query.all()
-            for t in db_terms:
-                keywords.append(t.term)
-        except Exception as e:
-            logger.warning(f"Error fetching ThreatTerms: {e}")
+        keywords.extend(get_threat_terms())
 
         # Helper to check keywords against text
         def check_keywords(text, source_name="text"):
