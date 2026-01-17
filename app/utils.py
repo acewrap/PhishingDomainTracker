@@ -48,7 +48,7 @@ def setup_syslog_logger():
 
 syslog_logger = setup_syslog_logger()
 
-def log_security_event(event_name, user_id, ip_address, severity='info', **kwargs):
+def log_security_event(event_name, user_id, ip_address, severity='info', domain_name=None, **kwargs):
     """
     Logs a security event in Syslog format with structured JSON data.
 
@@ -70,9 +70,10 @@ def log_security_event(event_name, user_id, ip_address, severity='info', **kwarg
 
     # Construct structured data
     log_data = {
-        'event': event_name,
-        'user_id': user_id,
-        'src_ip': ip_address,
+        'User': user_id,
+        'IP Address': ip_address,
+        'Phishing Domain': domain_name if domain_name else "N/A",
+        'Action Taken': event_name,
         'timestamp_utc': timestamp
     }
     log_data.update(kwargs)
@@ -377,7 +378,7 @@ def enrich_domain(domain_obj):
 
     # 1. WhoisXML API
     if WHOISXML_API_KEY:
-        log_security_event('External API Call', user_id, 'system', 'info', service='WhoisXML', api_key_name='WHOISXML_API_KEY')
+        log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='WhoisXML', api_key_name='WHOISXML_API_KEY')
         try:
             # Note: This is a placeholder URL and structure. 
             # In a real scenario, check the specific API endpoint and params.
@@ -450,7 +451,7 @@ def enrich_domain(domain_obj):
 
     # 2. Urlscan.io API
     if URLSCAN_API_KEY:
-        log_security_event('External API Call', user_id, 'system', 'info', service='Urlscan.io', api_key_name='URLSCAN_API_KEY')
+        log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='Urlscan.io', api_key_name='URLSCAN_API_KEY')
         try:
             # We want to scan the domain
             headers = {
@@ -616,7 +617,7 @@ def report_to_vendors(domain_obj):
 
     # 1. Google Web Risk
     if GOOGLE_WEBRISK_KEY and GOOGLE_PROJECT_ID:
-        log_security_event('External API Call', user_id, 'system', 'info', service='Google Web Risk', api_key_name='GOOGLE_WEBRISK_KEY')
+        log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='Google Web Risk', api_key_name='GOOGLE_WEBRISK_KEY')
         try:
             url = f"https://webrisk.googleapis.com/v1/projects/{GOOGLE_PROJECT_ID}/uris:submit"
             params = {'key': GOOGLE_WEBRISK_KEY}
@@ -635,7 +636,7 @@ def report_to_vendors(domain_obj):
 
     # 2. URLhaus
     if URLHAUS_API_KEY:
-        log_security_event('External API Call', user_id, 'system', 'info', service='URLhaus', api_key_name='URLHAUS_API_KEY')
+        log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='URLhaus', api_key_name='URLHAUS_API_KEY')
         try:
             url = "https://urlhaus.abuse.ch/api/"
             headers = {'Auth-Key': URLHAUS_API_KEY}
@@ -674,7 +675,7 @@ def report_to_vendors(domain_obj):
 
     # 3. PhishTank
     if PHISHTANK_API_KEY:
-        log_security_event('External API Call', user_id, 'system', 'info', service='PhishTank', api_key_name='PHISHTANK_API_KEY')
+        log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='PhishTank', api_key_name='PHISHTANK_API_KEY')
         # No public submission API available
         results['PhishTank'] = 'Skipped (No Submission API)'
     else:
