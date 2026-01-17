@@ -13,3 +13,6 @@ APScheduler
 ipwhois
 pyjarm
 mmh3
+gunicorn
+psycopg2-binary
+whitenoise

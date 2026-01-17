@@ -14,10 +14,27 @@ import sqlalchemy
 from flask import Response
 from flask_wtf.csrf import CSRFProtect
 from app.scheduler import init_scheduler
+from whitenoise import WhiteNoise
+import time
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# WhiteNoise for static files
+if os.path.isdir(os.path.join(app.root_path, 'static')):
+    app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(app.root_path, 'static'), prefix='static/')
+
+@app.cli.command("run-scheduler")
+def run_scheduler_command():
+    """Runs the scheduler in a separate process."""
+    init_scheduler(app)
+    # The scheduler is background, so we must keep main thread alive
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
 
 # Security Configuration
 app.config['SESSION_COOKIE_HTTPONLY'] = True

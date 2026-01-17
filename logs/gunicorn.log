@@ -1,0 +1,32 @@
+2026-01-17 18:38:36 [4012] [INFO] Starting gunicorn 23.0.0
+2026-01-17 18:38:36 [4012] [INFO] Listening at: http://0.0.0.0:8080 (4012)
+2026-01-17 18:38:36 [4012] [INFO] Using worker: gthread
+2026-01-17 18:38:36 [4127] [INFO] Booting worker with pid: 4127
+2026-01-17 18:38:36 [4128] [INFO] Booting worker with pid: 4128
+2026-01-17 18:38:36 [4129] [INFO] Booting worker with pid: 4129
+2026-01-17 18:38:37 [4130] [INFO] Booting worker with pid: 4130
+2026-01-17 18:38:37 [4131] [INFO] Booting worker with pid: 4131
+2026-01-17 18:38:37 [4132] [INFO] Booting worker with pid: 4132
+2026-01-17 18:38:37 [4133] [INFO] Booting worker with pid: 4133
+2026-01-17 18:38:37 [4134] [INFO] Booting worker with pid: 4134
+2026-01-17 18:38:37 [4135] [INFO] Booting worker with pid: 4135
+2026-01-17 18:39:13 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:39:13 +0000] "GET / HTTP/1.1" 302 217 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:39:13 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:39:13 +0000] "GET /login?next=%2F HTTP/1.1" 200 3355 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:40:32 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:40:32 +0000] "GET / HTTP/1.1" 302 217 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:40:32 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:40:32 +0000] "GET /login?next=%2F HTTP/1.1" 200 3355 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:40:32 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:40:32 +0000] "POST /login?next=%2F HTTP/1.1" 200 3379 "http://localhost:8080/login?next=%2F" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:41:22 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:41:22 +0000] "GET / HTTP/1.1" 302 217 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:41:22 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:41:22 +0000] "GET /login?next=%2F HTTP/1.1" 200 3355 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:41:23 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:41:23 +0000] "POST /login?next=%2F HTTP/1.1" 302 189 "http://localhost:8080/login?next=%2F" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:41:23 [4131] [INFO] 127.0.0.1 - - [17/Jan/2026:18:41:23 +0000] "GET / HTTP/1.1" 200 8808 "http://localhost:8080/login?next=%2F" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36"
+2026-01-17 18:42:06 [4012] [INFO] Handling signal: term
+2026-01-17 18:42:06 [4134] [INFO] Worker exiting (pid: 4134)
+2026-01-17 18:42:06 [4131] [INFO] Worker exiting (pid: 4131)
+2026-01-17 18:42:06 [4132] [INFO] Worker exiting (pid: 4132)
+2026-01-17 18:42:06 [4133] [INFO] Worker exiting (pid: 4133)
+2026-01-17 18:42:06 [4130] [INFO] Worker exiting (pid: 4130)
+2026-01-17 18:42:06 [4127] [INFO] Worker exiting (pid: 4127)
+2026-01-17 18:42:07 [4135] [INFO] Worker exiting (pid: 4135)
+2026-01-17 18:42:07 [4129] [INFO] Worker exiting (pid: 4129)
+2026-01-17 18:42:07 [4128] [INFO] Worker exiting (pid: 4128)
+2026-01-17 18:42:07 [4012] [INFO] Shutting down: Master
