@@ -2,16 +2,20 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_login import login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import db, migrate, bcrypt, login_manager
-from app.models import PhishingDomain, User
+from app.models import PhishingDomain, User, EmailEvidence
 from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites
 from app.forms import AddDomainForm
+from app.queue_service import add_task
+from app.reporting import generate_evidence_pdf
+from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
+import uuid
 import csv
 import io
 import sqlite3
 import sqlalchemy
-from flask import Response
+from flask import Response, send_file
 from flask_wtf.csrf import CSRFProtect
 from app.scheduler import init_scheduler
 from whitenoise import WhiteNoise
@@ -35,6 +39,31 @@ def run_scheduler_command():
             time.sleep(1)
     except KeyboardInterrupt:
         pass
+
+@app.cli.command("run-worker")
+def run_worker_command():
+    """Runs the background task worker."""
+    from app.queue_service import process_next_task
+    import logging
+
+    # Ensure uploads dir exists
+    if not os.path.exists('uploads'):
+        os.makedirs('uploads')
+
+    logger = logging.getLogger(__name__)
+    logger.info("Worker started...")
+    try:
+        while True:
+            processed = False
+            # Use app_context to ensure DB session is valid
+            processed = process_next_task()
+
+            if not processed:
+                time.sleep(5) # Poll interval
+            else:
+                 time.sleep(1) # Small delay
+    except KeyboardInterrupt:
+        logger.info("Worker stopped.")
 
 # Security Configuration
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -84,27 +113,64 @@ def index():
 def add_domain():
     form = AddDomainForm()
     if form.validate_on_submit():
-        domain_name = form.domain_name.data.strip()
+        # Handle File Upload
+        if form.file_upload.data:
+            file = form.file_upload.data
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4()}_{filename}"
 
-        # Check if exists
-        existing = PhishingDomain.query.filter_by(domain_name=domain_name).first()
-        if existing:
-            flash(f'Domain {domain_name} already exists.', 'warning')
-            return redirect(url_for('domain_details', id=existing.id))
+            # Ensure uploads directory
+            upload_dir = os.path.join(app.root_path, '..', 'uploads')
+            if not os.path.exists(upload_dir):
+                os.makedirs(upload_dir)
 
-        new_domain = PhishingDomain(domain_name=domain_name)
+            filepath = os.path.join(upload_dir, unique_filename)
+            file.save(filepath)
 
-        # Optional: auto-enrich on add
-        if form.auto_enrich.data:
-                enrich_domain(new_domain)
+            # Create Evidence Record
+            evidence = EmailEvidence(
+                filename=filename,
+                submitted_by=current_user.id
+            )
+            db.session.add(evidence)
+            db.session.commit()
 
-        db.session.add(new_domain)
-        db.session.commit()
+            # Add Task
+            add_task('process_email', {'evidence_id': evidence.id, 'filepath': filepath})
 
-        log_security_event('Domain Added', current_user.username, request.remote_addr, 'info', domain_name=domain_name)
+            log_security_event('Email Uploaded', current_user.username, request.remote_addr, 'info', filename=filename)
+            flash(f'File {filename} uploaded and processing started.', 'success')
 
-        flash(f'Domain {domain_name} added successfully.', 'success')
-        return redirect(url_for('index'))
+            # Determine redirect - maybe to Evidence Storage page?
+            # Since that page isn't fully built/linked in menu yet, maybe index or stay?
+            # But the plan says "Web UI: Admin Evidence Storage" is next step.
+            # Assuming it will exist:
+            return redirect(url_for('index')) # Or evidence storage
+
+        # Handle Domain Name
+        if form.domain_name.data:
+            domain_name = form.domain_name.data.strip()
+
+            # Check if exists
+            existing = PhishingDomain.query.filter_by(domain_name=domain_name).first()
+            if existing:
+                flash(f'Domain {domain_name} already exists.', 'warning')
+                return redirect(url_for('domain_details', id=existing.id))
+
+            new_domain = PhishingDomain(domain_name=domain_name)
+
+            # Optional: auto-enrich on add
+            if form.auto_enrich.data:
+                    enrich_domain(new_domain)
+
+            db.session.add(new_domain)
+            db.session.commit()
+
+            log_security_event('Domain Added', current_user.username, request.remote_addr, 'info', domain_name=domain_name)
+
+            flash(f'Domain {domain_name} added successfully.', 'success')
+            return redirect(url_for('index'))
+
     return render_template('add_domain.html', form=form)
 
 @app.route('/domain/<int:id>')
@@ -254,6 +320,21 @@ def delete_domains():
     else:
         flash('No domains selected for deletion.', 'warning')
     return redirect(url_for('index'))
+
+@app.route('/evidence/report/<int:id>')
+@login_required
+def download_evidence_report(id):
+    pdf_io = generate_evidence_pdf(id)
+    if not pdf_io:
+        flash('Report generation failed or evidence not found.', 'danger')
+        return redirect(url_for('index'))
+
+    return send_file(
+        pdf_io,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'evidence_report_{id}.pdf'
+    )
 
 @app.route('/reports', methods=['GET', 'POST'])
 @login_required

@@ -125,6 +125,7 @@ PHISHTANK_API_KEY = os.environ.get('PHISHTANK_API_KEY')
 URLHAUS_API_KEY = os.environ.get('URLHAUS_API_KEY')
 GOOGLE_WEBRISK_KEY = os.environ.get('GOOGLE_WEBRISK_KEY')
 GOOGLE_PROJECT_ID = os.environ.get('GOOGLE_PROJECT_ID')
+VIRUSTOTAL_API_KEY = os.environ.get('VIRUSTOTAL_API_KEY')
 
 # Global cache for threat terms
 _THREAT_TERMS_CACHE = None
@@ -681,7 +682,82 @@ def report_to_vendors(domain_obj):
     else:
         results['PhishTank'] = 'Skipped (Missing Key)'
 
+    # 4. VirusTotal
+    if VIRUSTOTAL_API_KEY:
+        log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='VirusTotal', api_key_name='VIRUSTOTAL_API_KEY')
+        try:
+             res_vt = submit_vt_url(domain_url)
+             if res_vt.get('data'):
+                 results['VirusTotal'] = 'Success'
+             else:
+                 results['VirusTotal'] = f"Failed ({res_vt.get('error', {}).get('message', 'Unknown Error')})"
+        except Exception as e:
+            logger.error(f"VirusTotal exception: {e}")
+            results['VirusTotal'] = f"Error: {str(e)}"
+    else:
+        results['VirusTotal'] = 'Skipped (Missing Key)'
+
     return results
+
+def submit_vt_url(url):
+    """
+    Submits a URL to VirusTotal for scanning.
+    """
+    if not VIRUSTOTAL_API_KEY:
+        return {'error': {'message': 'API Key not configured'}}
+
+    api_url = "https://www.virustotal.com/api/v3/urls"
+    headers = {
+        "x-apikey": VIRUSTOTAL_API_KEY
+    }
+    data = {"url": url}
+
+    try:
+        response = http.post(api_url, headers=headers, data=data, timeout=10)
+        return response.json()
+    except Exception as e:
+        logger.error(f"Error submitting to VT: {e}")
+        return {'error': {'message': str(e)}}
+
+def check_vt_reputation(indicator, indicator_type):
+    """
+    Checks VirusTotal reputation for an indicator (ip, domain, url).
+    indicator_type: 'ip', 'domain', 'url'
+    Returns dict with stats or None.
+    """
+    if not VIRUSTOTAL_API_KEY:
+        return None
+
+    base_url = "https://www.virustotal.com/api/v3"
+    endpoint = ""
+
+    if indicator_type == 'ip':
+        endpoint = f"/ip_addresses/{indicator}"
+    elif indicator_type == 'domain':
+        endpoint = f"/domains/{indicator}"
+    elif indicator_type == 'url':
+        # URLs are tricky, need base64 identifier without padding
+        import base64
+        url_id = base64.urlsafe_b64encode(indicator.encode()).decode().strip("=")
+        endpoint = f"/urls/{url_id}"
+    else:
+        return None
+
+    url = f"{base_url}{endpoint}"
+    headers = {"x-apikey": VIRUSTOTAL_API_KEY}
+
+    try:
+        response = http.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json().get('data', {}).get('attributes', {})
+            stats = data.get('last_analysis_stats', {})
+            return stats
+        elif response.status_code == 404:
+            return {'harmless': 0, 'malicious': 0, 'suspicious': 0, 'undetected': 0, 'status': 'Not Found'}
+    except Exception as e:
+        logger.error(f"Error checking VT reputation for {indicator}: {e}")
+
+    return None
 
 def find_related_sites(domain_id):
     """

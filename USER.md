@@ -18,16 +18,26 @@
 
 ![Dashboard](docs/images/dashboard.png)
 
+## Adding Domains & Phishing Emails
+Navigate to **Add Domain/Phish Extract** to submit data.
+- **Add Domain:** Enter a domain name to begin tracking.
+- **Upload Email:** Upload a `.eml` or `.msg` file. The system will automatically:
+    - Parse headers and body.
+    - Extract indicators (IPs, URLs, Domains).
+    - Check indicators against VirusTotal.
+    - Correlate indicators with existing tracked domains.
+
 ## Reporting Phishing
 - Navigate to the **Domain Details** page for a specific domain.
 - In the "Manual Updates" section, click **Report to Security Vendors**.
 - Enter your password to confirm the action.
-- The system will attempt to report the domain to configured security vendors (e.g., Google Web Risk, URLhaus).
+- The system will attempt to report the domain to configured security vendors (e.g., Google Web Risk, URLhaus, VirusTotal).
 - A status report will be displayed indicating success or failure for each vendor.
 
 ## Correlation & Analysis
 The **Domain Details** page includes an "Infrastructure Correlations" section.
 - **Related Domains:** Displays a list of other tracked domains that share infrastructure (IP, ASN, Favicon, JARM, or Artifacts).
+- **Evidence Correlations:** Displays email files that contained indicators matching this domain. You can download a PDF report of the email analysis.
 - **Confidence Score:** A score indicating the strength of the relationship. Higher scores suggest cloned or related infrastructure.
 - **Blue Domain Alerts:** If a domain is found hosting images from your internal (Blue) domains, it will be automatically flagged as **Confirmed Phish** and marked in the domain notes.
 

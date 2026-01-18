@@ -6,11 +6,12 @@ from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required, current_user
 from app.admin import admin_bp
-from app.models import User, APIKey, PhishingDomain, ThreatTerm
+from app.models import User, APIKey, PhishingDomain, ThreatTerm, EmailEvidence
 from app.extensions import db, bcrypt
 from app.utils import admin_required, log_security_event, enrich_domain
 from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm
 from app.backup_service import generate_backup_data, perform_restore
+from app.queue_service import add_task
 
 @admin_bp.route('/users')
 @login_required
@@ -78,6 +79,22 @@ def delete_threat_term(id):
     db.session.commit()
     flash(f'Term "{term.term}" deleted.', 'success')
     return redirect(url_for('admin.threat_terms'))
+
+@admin_bp.route('/evidence')
+@login_required
+@admin_required
+def evidence_storage():
+    evidence_list = EmailEvidence.query.order_by(EmailEvidence.submitted_at.desc()).all()
+    return render_template('admin/evidence_storage.html', evidence_list=evidence_list)
+
+@admin_bp.route('/refresh_correlations', methods=['POST'])
+@login_required
+@admin_required
+def refresh_correlations():
+    add_task('refresh_correlations', {})
+    flash('Correlation refresh task started.', 'info')
+    log_security_event('Correlation Refresh Triggered', current_user.username, request.remote_addr, 'info')
+    return redirect(url_for('admin.evidence_storage'))
 
 @admin_bp.route('/data-management', methods=['GET'])
 @login_required

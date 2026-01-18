@@ -26,6 +26,20 @@ On the main dashboard, you can select multiple domains using the checkboxes and 
 - **Enrich/Refresh:** Triggers enrichment for all selected domains.
 - **Delete Selected:** Deletes all selected domains.
 
+## Email Ingestion & Analysis
+The system allows uploading `.eml` and `.msg` files for automated analysis.
+1. **Upload:** Users can upload files via the "Add Domain/Phish Extract" page.
+2. **Analysis:** The system extracts headers, body, and indicators (IPs, URLs, Domains).
+3. **Enrichment:** Extracted indicators are checked against VirusTotal (if configured).
+4. **Correlation:** Evidence is correlated with known Phishing Domains.
+
+### Evidence Storage (Admin Only)
+Navigate to **Admin > Evidence Storage** to view all submitted emails.
+- View metadata (Submitter, Date, Filename).
+- View Correlation matches.
+- **PDF Report:** Download a detailed PDF analysis report for each submission.
+- **Refresh Correlations:** Trigger a background task to re-scan all evidence against the latest domain database.
+
 ## Threat Terms Management
 1. Navigate to **Admin > Threat Terms**.
 2. **Add Term:** Enter a keyword (e.g., "CompanyXYZ", "HR Portal") that implies a phishing attempt against your organization.
@@ -35,13 +49,13 @@ On the main dashboard, you can select multiple domains using the checkboxes and 
 
 These terms are used by the automated scheduler and enrichment process to scan domain content. If a match is found on a non-allowlisted domain, it may be flagged as 'Red'.
 
-## Automated Scheduler
-The system runs background tasks to check domain status:
-- **Purple (6h):** Checks for remediation (404/no login). Moves to Yellow (or Orange) if site is down.
-- **Red (24h):** Checks availability.
-- **Orange (24h):** Monitors MX records.
-- **Yellow (Weekly):** Checks parked domains for new activity.
-- **Grey (Monthly):** Checks for reactivation.
+## Automated Scheduler & Background Worker
+The system runs background tasks for domain checks and email processing.
+To run the background worker for email processing and reports:
+```bash
+flask run-worker
+```
+The scheduler handles periodic domain checks and a daily **Correlation Refresh**.
 
 Logs are stored in `logs/syslog.log` relative to the application root.
 
@@ -58,7 +72,7 @@ You can bulk import domains using a CSV file.
 
 ### Database Backup & Restore
 1. Navigate to **Admin > Backup/Restore**.
-2. **Backup:** Click "Download Backup" to get a full JSON dump of Users, API Keys, and Domains.
+2. **Backup:** Click "Download Backup" to get a full JSON dump of Users, API Keys, Domains, **Threat Terms**, **Evidence**, and **Correlations**.
 3. **Restore:** Upload a previously generated backup JSON file.
    - **WARNING:** This will **delete all existing data** in the database and replace it with the backup content. This action cannot be undone.
 
@@ -69,5 +83,8 @@ The system includes an advanced correlation engine that analyzes domains for sha
 - **Fingerprinting:** Collects IP, ASN, Registrar, Favicon Hash (MMH3), JARM Hash, and HTML Artifacts (scripts/CSS).
 - **Correlation:** Automatically identifies related sites based on matching pivots (e.g., same IP, same Favicon, overlapping artifacts).
 - **Blue Domain Rule:** If any tracked domain links to an image hosted on an 'Internal/Pentest' (Blue) domain, it is automatically flagged as 'Confirmed Phish' (Red) with a note added to the record.
+- **Evidence Correlation:** Matches extracted indicators from emails to monitored Phishing Domains.
 
-This helps identify larger campaigns and cloned infrastructure.
+## Configuration
+Set the following environment variable to enable VirusTotal integration:
+- `VIRUSTOTAL_API_KEY`: Your VirusTotal API Key.

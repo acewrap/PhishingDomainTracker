@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, BooleanField
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, FileField
 from wtforms.validators import DataRequired, Length, EqualTo, ValidationError
 from app.models import User
 
@@ -29,9 +29,18 @@ class GenerateAPIKeyForm(FlaskForm):
     submit = SubmitField('Generate API Key')
 
 class AddDomainForm(FlaskForm):
-    domain_name = StringField('Domain Name', validators=[DataRequired()])
+    domain_name = StringField('Domain Name')
+    file_upload = FileField('Upload Email (.eml / .msg)')
     auto_enrich = BooleanField('Auto Enrich')
-    submit = SubmitField('Add Domain')
+    submit = SubmitField('Submit')
+
+    def validate(self, extra_validators=None):
+        if not super().validate(extra_validators):
+            return False
+        if not self.domain_name.data and not self.file_upload.data:
+            self.domain_name.errors.append('Please provide either a Domain Name or an Email file.')
+            return False
+        return True
 
 class UpdateDomainForm(FlaskForm):
     action_taken = StringField('Action Taken')
