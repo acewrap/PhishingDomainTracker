@@ -1,10 +1,15 @@
 from flask import Blueprint, jsonify, request, abort, g
-from app.models import PhishingDomain, APIKey
+from app.models import PhishingDomain, APIKey, EmailEvidence
 from app.extensions import db
 from app.backup_service import generate_backup_data, perform_restore
+from app.queue_service import add_task
+from werkzeug.utils import secure_filename
 import hashlib
 from functools import wraps
 from datetime import datetime
+import os
+import uuid
+import json
 
 api_v1 = Blueprint('api_v1', __name__, url_prefix='/api/v1')
 
@@ -70,6 +75,79 @@ def add_domain():
     db.session.commit()
 
     return jsonify({'message': 'Domain added', 'id': new_domain.id}), 201
+
+@api_v1.route('/evidence', methods=['POST'])
+@require_api_key
+def upload_evidence():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    filename = secure_filename(file.filename)
+    if not (filename.lower().endswith('.eml') or filename.lower().endswith('.msg')):
+        return jsonify({'error': 'Invalid file type. Only .eml and .msg supported.'}), 400
+
+    unique_filename = f"{uuid.uuid4()}_{filename}"
+
+    # Ensure uploads directory (relative to where app is run, typically root)
+    # Using 'uploads' as per app.py logic
+    upload_dir = 'uploads'
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
+
+    filepath = os.path.join(upload_dir, unique_filename)
+    file.save(filepath)
+
+    # Create Evidence Record
+    evidence = EmailEvidence(
+        filename=filename,
+        submitted_by=g.api_user.id
+    )
+    db.session.add(evidence)
+    db.session.commit()
+
+    # Add Task
+    add_task('process_email', {'evidence_id': evidence.id, 'filepath': filepath})
+
+    return jsonify({'message': 'Evidence uploaded and processing started', 'id': evidence.id}), 201
+
+@api_v1.route('/evidence/<int:id>', methods=['GET'])
+@require_api_key
+def get_evidence(id):
+    evidence = EmailEvidence.query.get(id)
+    if not evidence:
+        return jsonify({'error': 'Evidence not found'}), 404
+
+    # Check permission? Currently API Key user can see anything or just their own?
+    # Logic in require_api_key sets g.api_user. Admin sees all?
+    # For now, simplistic: if you have a valid API key, you can query by ID.
+
+    indicators = {}
+    if evidence.extracted_indicators:
+        try:
+             indicators = json.loads(evidence.extracted_indicators)
+        except:
+             pass
+
+    analysis = {}
+    if evidence.analysis_report:
+        try:
+            analysis = json.loads(evidence.analysis_report)
+        except:
+            pass
+
+    return jsonify({
+        'id': evidence.id,
+        'filename': evidence.filename,
+        'submitted_at': evidence.submitted_at.isoformat(),
+        'submitted_by': evidence.user.username if evidence.user else None,
+        'extracted_indicators': indicators,
+        'analysis_report': analysis,
+        'correlations_count': len(evidence.correlations)
+    })
 
 @api_v1.route('/backup', methods=['GET'])
 @require_api_key
