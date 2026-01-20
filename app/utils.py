@@ -501,6 +501,9 @@ def enrich_domain(domain_obj):
     # 3. Check for login page indicators and blue links
     scan_result = fetch_and_check_domain(domain_obj.domain_name)
     if scan_result:
+        # If we successfully fetched the domain, mark it as active
+        domain_obj.is_active = True
+
         if scan_result.get('is_login'):
             logger.info(f"Login page detected for {domain_obj.domain_name}")
             domain_obj.has_login_page = True
