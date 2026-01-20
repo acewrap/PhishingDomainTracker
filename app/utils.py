@@ -485,7 +485,8 @@ def enrich_domain(domain_obj):
                 # For this MVP, we will set the result link.
                 
                 # Optimistic 'Active' status if scan submission worked
-                domain_obj.is_active = True 
+                # domain_obj.is_active = True
+                pass
                 
             elif response.status_code == 400:
                  # Often means domain didn't resolve or invalid
@@ -556,6 +557,10 @@ def enrich_domain(domain_obj):
     else:
         # Fetch failed
         logger.info(f"Could not fetch {domain_obj.domain_name} to check for login/blue links")
+        domain_obj.is_active = False
+        domain_obj.has_login_page = False
+        if not domain_obj.date_remediated:
+             domain_obj.date_remediated = datetime.utcnow()
 
     # Resolve IP if missing (needed for ASN)
     if not domain_obj.ip_address:
