@@ -16,3 +16,5 @@ mmh3
 gunicorn
 psycopg2-binary
 whitenoise
+extract-msg
+weasyprint

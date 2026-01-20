@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Evidence Storage</h2>
+        <div class="mb-3">
+             <form action="{{ url_for('admin.refresh_correlations') }}" method="POST" class="d-inline">
+                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                 <button type="submit" class="btn btn-warning">Refresh Correlations</button>
+             </form>
+        </div>
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Submitted At</th>
+                    <th>Submitter</th>
+                    <th>Filename</th>
+                    <th>Correlations</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ev in evidence_list %}
+                    <tr>
+                        <td>{{ ev.submitted_at.strftime('%Y-%m-%d %H:%M') if ev.submitted_at else 'N/A' }}</td>
+                        <td>{{ ev.user.username if ev.user else 'Unknown' }}</td>
+                        <td>{{ ev.filename }}</td>
+                        <td>
+                            {% if ev.correlations %}
+                                <span class="badge bg-danger">{{ ev.correlations|length }} Matches</span>
+                                <ul class="list-unstyled small mb-0">
+                                {% for corr in ev.correlations %}
+                                    <li><a href="{{ url_for('domain_details', id=corr.domain_id) }}">{{ corr.domain.domain_name }}</a> ({{ corr.correlation_type }})</li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span class="badge bg-secondary">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <!-- We will add routes for PDF and View later or now? -->
+                            <!-- User Goal 4: PDF Reporting. "Generate a summary report for each submission." -->
+                            <!-- We need a route for this. Let's assume 'download_evidence_report' -->
+                             <a href="{{ url_for('download_evidence_report', id=ev.id) }}" class="btn btn-sm btn-outline-primary">PDF Report</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

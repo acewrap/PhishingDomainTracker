@@ -8,7 +8,7 @@ This document outlines the high-level architecture, data flows, and security mec
 
 ## System Overview
 
-The application is built as a monolithic web application using the **Flask** framework (Python). It combines a server-side rendered user interface with a background job scheduler for automated monitoring.
+The application is built as a monolithic web application using the **Flask** framework (Python). It combines a server-side rendered user interface with a background job scheduler and a task queue for automated monitoring and processing.
 
 ### High-Level Components
 
@@ -21,11 +21,13 @@ graph TD
         UI
         API
         Scheduler["Background Scheduler (APScheduler)"]
+        Worker["Task Worker"]
         Logic["Business Logic & Threat Detection"]
     end
 
     subgraph "Data Storage"
         DB[(SQLite Database)]
+        FS[File System (Uploads/Logs)]
     end
 
     subgraph "External Integrations"
@@ -33,22 +35,27 @@ graph TD
         Urlscan[Urlscan.io]
         Google[Google Web Risk]
         URLhaus[URLhaus API]
+        VT[VirusTotal]
     end
 
     UI --> Logic
     API --> Logic
     Scheduler --> Logic
+    Worker --> Logic
     Logic --> DB
+    Logic --> FS
     Logic --> Whois
     Logic --> Urlscan
     Logic --> Google
     Logic --> URLhaus
+    Logic --> VT
 ```
 
-*   **Web Dashboard:** The primary interface for analysts to add domains, view details, and manage threat statuses.
+*   **Web Dashboard:** The primary interface for analysts to add domains, view details, upload emails, and manage threat statuses.
 *   **REST API:** Provides programmatic access for bulk operations, backups, and external integrations.
-*   **Background Scheduler:** Periodically checks domains to update their status automatically based on reachability and content analysis.
-*   **SQLite Database:** Stores all domain data, user credentials, and configuration locally.
+*   **Background Scheduler:** Periodically checks domains to update their status automatically.
+*   **Task Worker:** Handles long-running tasks such as email parsing, PDF generation, and correlation refreshment.
+*   **SQLite Database:** Stores all domain data, user credentials, email evidence, and configuration locally.
 
 ---
 
@@ -114,7 +121,15 @@ When a domain is added (via UI or API):
     *   **Infrastructure Fingerprinting:** Performs JARM scan, Favicon hashing (MMH3), ASN lookup, and Artifact analysis.
 3.  **Initial Assessment:** The domain is immediately assigned a threat status (e.g., Red if a login page is found, Orange if MX exists).
 
-### 2. Automated Monitoring (The Scheduler)
+### 2. Email Ingestion & Analysis
+When an email is uploaded:
+1.  **Parsing:** The `.eml` or `.msg` file is parsed to extract headers, body, and metadata.
+2.  **Indicator Extraction:** Regex patterns extract URLs, IPs, and Domains from the content.
+3.  **Enrichment (VirusTotal):** Extracted indicators are checked against VirusTotal API to gather reputation stats.
+4.  **Correlation:** Extracted indicators are matched against the existing Phishing Domains database. Matches are recorded as `EvidenceCorrelation`.
+5.  **Reporting:** A PDF report is generated encapsulating the analysis.
+
+### 3. Automated Monitoring (The Scheduler)
 The application runs several background jobs to keep data fresh:
 
 | Frequency | Target Group | Action |
@@ -122,13 +137,15 @@ The application runs several background jobs to keep data fresh:
 | **Every 6 Hours** | **Purple** | Checks if the site is down (404/Connection Refused). Moves to **Yellow** (or **Orange** if MX exists) if verified down. |
 | **Every 24 Hours** | **Red** | Checks if the site is still active. Moves to **Grey** if unreachable. Updates IP address. |
 | **Every 24 Hours** | **Orange** | Checks for changes in MX records. Logs any modifications. |
+| **Daily** | **System** | Refreshes correlations between all Email Evidence and Phishing Domains. |
 | **Weekly** | **Yellow** | Checks if the site has become active (200 OK) or hosts a login page. Moves to **Red** if positive. |
 | **Monthly** | **Grey** | "Lazarus Check" - Checks if a remediated site is back online. Moves to **Red** if active. |
 
-### 3. Reporting & Takedown
+### 4. Reporting & Takedown
 Analysts can use the "Report Phishing" feature on the domain details page. This triggers API calls to:
 *   **Google Web Risk:** Submits the URL to Google's blocklist.
 *   **URLhaus:** Submits the URL to the URLhaus threat intelligence database.
+*   **VirusTotal:** Submits the URL to VirusTotal for scanning.
 
 *Note: Reporting requires a valid API key configuration and a password re-verification step for security.*
 
@@ -136,17 +153,21 @@ Analysts can use the "Report Phishing" feature on the domain details page. This 
 
 ## Correlation Engine
 
-The application includes a correlation engine to identify relationships between domains.
+The application includes a correlation engine to identify relationships between domains and email evidence.
 
-### Pivot Points
+### Pivot Points (Domain-to-Domain)
 *   **IP Address:** Domains sharing the same hosting IP.
 *   **ASN:** Domains hosted within the same Autonomous System.
 *   **Favicon:** Matches based on MMH3 hash of the favicon.
 *   **JARM:** Matches based on SSL/TLS server configuration fingerprints.
 *   **HTML Artifacts:** Matches based on high overlap (>50%) of external script and CSS filenames.
 
+### Evidence Correlation (Email-to-Domain)
+*   **Domain Match:** Extracted domains from emails match monitored domains.
+*   **IP Match:** Extracted IPs from emails match monitored domain IPs.
+
 ### Detection Rules
-*   **Blue Domain Link:** A specialized detection rule scans page content for linked images (e.g., logos) hosted on domains marked as **Blue (Internal/Pentest)**. If found, the domain is automatically flagged as **Confirmed Phish (Red)**.
+*   **Blue Domain Rule:** If any tracked domain links to an image hosted on an 'Internal/Pentest' (Blue) domain, it is automatically flagged as 'Confirmed Phish' (Red) with a note added to the record.
 
 ---
 
@@ -155,26 +176,27 @@ The application includes a correlation engine to identify relationships between 
 The database schema is designed for simplicity using SQLite.
 
 *   **PhishingDomain**: The central entity containing domain metadata (`domain_name`, `registrar`, `ip_address`), status flags (`is_active`, `has_login_page`, `manual_status`), and timestamps (`date_entered`, `date_remediated`). New fields support correlation: `asn_number`, `favicon_mmh3`, `jarm_hash`, `html_artifacts`.
-*   **User**: Application users. Includes fields for authentication (`password_hash`), security (`failed_login_attempts`, `password_expired`), and role (`is_admin`).
-*   **APIKey**: Linked to users. Stores the `access_key` and a hashed version of the `secret_key` (`secret_hash`) for secure programmatic access.
-*   **ThreatTerm**: A dynamic list of keywords (e.g., "password", "login", "urgent") used by the scanner to detect phishing content on analyzed pages.
+*   **User**: Application users.
+*   **APIKey**: Linked to users.
+*   **ThreatTerm**: A dynamic list of keywords.
+*   **EmailEvidence**: Stores parsed email data, raw headers, body, extracted indicators, and analysis reports.
+*   **EvidenceCorrelation**: Linking table between `EmailEvidence` and `PhishingDomain`.
+*   **Task**: Queue for background tasks.
 
 ---
 
 ## Security Architecture
 
 ### Authentication
-*   **Web UI:** Uses **Flask-Login** with session cookies. Cookies are configured with `HttpOnly` and `SameSite=Lax` (and `Secure` in production) to prevent XSS and CSRF attacks. Passwords are hashed using **Bcrypt**.
-*   **API:** Uses a custom header-based authentication scheme:
-    *   `X-API-Key`: Public identifier.
-    *   `X-API-Secret`: Secret credential (hashed in DB, never stored in plain text).
+*   **Web UI:** Uses **Flask-Login** with session cookies.
+*   **API:** Uses a custom header-based authentication scheme (`X-API-Key`, `X-API-Secret`).
 
 ### Access Control
 *   **Role-Based Access Control (RBAC):**
-    *   **Admin:** Can manage users, view system logs, perform backups/restores, and manage threat terms.
-    *   **Analyst (Standard User):** Can add/edit domains, trigger scans, and view reports.
+    *   **Admin:** Can manage users, view system logs, perform backups/restores, manage threat terms, and view Evidence Storage.
+    *   **Analyst (Standard User):** Can add/edit domains, trigger scans, upload emails, and view reports.
 
 ### Security Features
 *   **CSRF Protection:** Enabled globally via **Flask-WTF** (exempting API routes).
 *   **Input Sanitization:** Domain names are stripped of whitespace; output is auto-escaped by Jinja2 templates.
-*   **Audit Logging:** Critical actions (status changes, logins, remediations) are logged to `logs/syslog.log` in a structured format compatible with SIEM tools.
+*   **Audit Logging:** Critical actions (status changes, logins, remediations, email uploads) are logged to `logs/syslog.log`.

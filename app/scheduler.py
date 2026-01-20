@@ -2,6 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app.models import PhishingDomain
 from app.extensions import db
 from app.utils import fetch_and_check_domain, check_mx_record, log_domain_event, http, logger, analyze_page_content, scan_page_content
+from app.queue_service import add_task
 import requests
 from datetime import datetime
 import socket
@@ -24,8 +25,15 @@ def init_scheduler(app):
         scheduler.add_job(check_orange_domains, 'interval', hours=24, args=[app])
         scheduler.add_job(check_yellow_domains, 'interval', weeks=1, args=[app])
         scheduler.add_job(check_grey_domains, 'interval', weeks=4, args=[app])
+        # Daily correlation refresh
+        scheduler.add_job(trigger_correlation_refresh, 'interval', days=1, args=[app])
         scheduler.start()
         logger.info("Scheduler started.")
+
+def trigger_correlation_refresh(app):
+    with app.app_context():
+        add_task('refresh_correlations', {})
+        logger.info("Scheduled task: refresh_correlations triggered.")
 
 def check_purple_domains(app):
     with app.app_context():

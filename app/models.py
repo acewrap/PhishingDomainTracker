@@ -83,3 +83,45 @@ class ThreatTerm(db.Model):
 
     def __repr__(self):
         return f'<ThreatTerm {self.term}>'
+
+class EmailEvidence(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=True)
+    headers = db.Column(db.Text, nullable=True)  # Stored as JSON string
+    body = db.Column(db.Text, nullable=True)
+    extracted_indicators = db.Column(db.Text, nullable=True)  # Stored as JSON string
+    analysis_report = db.Column(db.Text, nullable=True)  # Stored as JSON string
+    submitted_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship to user
+    user = db.relationship('User', backref=db.backref('submissions', lazy=True))
+
+    def __repr__(self):
+        return f'<EmailEvidence {self.id} - {self.filename}>'
+
+class EvidenceCorrelation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    evidence_id = db.Column(db.Integer, db.ForeignKey('email_evidence.id'), nullable=False)
+    domain_id = db.Column(db.Integer, db.ForeignKey('phishing_domain.id'), nullable=False)
+    correlation_type = db.Column(db.String(100), nullable=True)
+    details = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    evidence = db.relationship('EmailEvidence', backref=db.backref('correlations', lazy=True))
+    domain = db.relationship('PhishingDomain', backref=db.backref('evidence_correlations', lazy=True))
+
+    def __repr__(self):
+        return f'<EvidenceCorrelation {self.evidence_id} <-> {self.domain_id}>'
+
+class Task(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    task_type = db.Column(db.String(100), nullable=False)
+    payload = db.Column(db.Text, nullable=True)  # JSON payload
+    status = db.Column(db.String(20), default='pending')
+    result = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Task {self.id} {self.task_type} {self.status}>'

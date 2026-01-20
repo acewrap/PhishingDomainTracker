@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Email Analysis Report</title>
+    <style>
+        body { font-family: sans-serif; font-size: 12px; }
+        h1, h2, h3 { color: #333; }
+        .section { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th, td { border: 1px solid #ddd; padding: 5px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .badge { display: inline-block; padding: 2px 5px; background: #eee; border-radius: 3px; font-size: 10px; }
+        .badge-red { background: #ffcccc; color: #cc0000; }
+        pre { background: #f8f8f8; padding: 10px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Phishing Analysis Report</h1>
+    <p><strong>Filename:</strong> {{ evidence.filename }}</p>
+    <p><strong>Submitted By:</strong> {{ evidence.user.username if evidence.user else 'Unknown' }}</p>
+    <p><strong>Date:</strong> {{ evidence.submitted_at }}</p>
+
+    <div class="section">
+        <h2>Executive Summary</h2>
+        <p>This report details the analysis of the submitted email file.
+           {{ evidence.correlations|length }} correlations were found with known phishing infrastructure.</p>
+    </div>
+
+    <div class="section">
+        <h2>Correlations</h2>
+        {% if evidence.correlations %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Domain</th>
+                        <th>Type</th>
+                        <th>Details</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for corr in evidence.correlations %}
+                        <tr>
+                            <td>{{ corr.domain.domain_name }}</td>
+                            <td>{{ corr.correlation_type }}</td>
+                            <td>{{ corr.details }}</td>
+                            <td>{{ corr.domain.threat_status }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No correlations found with currently monitored domains.</p>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>Extracted Indicators</h2>
+        {% if indicators %}
+            <h3>URLs ({{ indicators.get('urls', [])|length }})</h3>
+            <ul>
+            {% for url in indicators.get('urls', []) %}
+                <li>
+                    {{ url }}
+                    {% if analysis.get('vt_stats', {}).get(url) %}
+                        <br><small>VT: {{ analysis['vt_stats'][url] }}</small>
+                    {% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+
+            <h3>Domains ({{ indicators.get('domains', [])|length }})</h3>
+            <ul>
+            {% for domain in indicators.get('domains', []) %}
+                <li>
+                    {{ domain }}
+                    {% if analysis.get('vt_stats', {}).get(domain) %}
+                         <span class="badge">{{ analysis['vt_stats'][domain].get('malicious', 0) }}/{{ analysis['vt_stats'][domain].get('harmless', 0) + analysis['vt_stats'][domain].get('malicious', 0) }}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+
+            <h3>IPs ({{ indicators.get('ips', [])|length }})</h3>
+            <ul>
+            {% for ip in indicators.get('ips', []) %}
+                <li>
+                    {{ ip }}
+                    {% if analysis.get('vt_stats', {}).get(ip) %}
+                        <span class="badge">{{ analysis['vt_stats'][ip].get('malicious', 0) }}/{{ analysis['vt_stats'][ip].get('harmless', 0) + analysis['vt_stats'][ip].get('malicious', 0) }}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h2>Email Body</h2>
+        <pre>{{ evidence.body }}</pre>
+    </div>
+
+    <div class="section">
+        <h2>Headers</h2>
+        <pre>{{ evidence.headers }}</pre>
+    </div>
+
+</body>
+</html>

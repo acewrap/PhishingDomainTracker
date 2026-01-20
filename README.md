@@ -9,9 +9,10 @@ A secure web application to track and monitor phishing domains targeting your or
 - **Monitoring**: Track active status, login pages, and screenshots.
 - **Automated Lifecycle**: Background checks for different domain categories (Red, Orange, Yellow, Purple, Grey).
 - **Threat Detection**: Detect phishing kits and keywords (e.g., "password", "Company Product") using customizable Threat Terms.
+- **Email Analysis**: Ingest and parse .eml/.msg files, extracting indicators and checking them against VirusTotal.
 - **Remediation Tracking**: Log actions taken and remediation dates.
-- **Reporting**: Report confirmed phishing domains to vendors (Google Web Risk, URLhaus) with a single click.
-- **Infrastructure Correlation**: Automatically identify related phishing domains based on shared infrastructure (IP, ASN, Favicon, JARM).
+- **Reporting**: Report confirmed phishing domains to vendors (Google Web Risk, URLhaus, VirusTotal) with a single click.
+- **Infrastructure Correlation**: Automatically identify related phishing domains based on shared infrastructure (IP, ASN, Favicon, JARM) and Email Evidence.
 - **User Authentication**: Secure login, password rotation policies, and admin user management.
 - **Programmatic API**: Secure API access using API Key & Secret.
 
@@ -44,7 +45,12 @@ For detailed instructions, please refer to the following guides:
    flask run --host=0.0.0.0 --port=8080
    ```
 
-4. Access the dashboard at `http://localhost:8080`.
+4. (Optional) Run the Background Worker:
+   ```bash
+   flask run-worker
+   ```
+
+5. Access the dashboard at `http://localhost:8080`.
    *(Default Admin Credentials: `admin` / `admin` - Change immediately upon login)*
 
 ## Automated Lifecycle Monitoring
@@ -73,10 +79,12 @@ The application employs advanced fingerprinting techniques to detect related inf
 *   **JARM Hash**: Identical TLS configuration fingerprints.
 *   **HTML Artifacts**: Overlapping scripts or stylesheets.
 
+It also correlates **Email Evidence** (uploaded .eml/.msg files) with monitored domains based on extracted indicators.
+
 ![Infrastructure Correlation](docs/images/domain_details.png)
 
 ## API Integrations
 
 - **WhoisXML API**: Used for fetching Whois data (registrar, registration status).
 - **Urlscan.io**: Used for scanning the URL to get screenshots and detect login pages/activity.
-- **Google Web Risk & URLhaus**: Integration for reporting active phishing domains.
+- **Google Web Risk, URLhaus, & VirusTotal**: Integration for reporting active phishing domains and checking reputation.

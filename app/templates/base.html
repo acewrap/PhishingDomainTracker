@@ -25,7 +25,7 @@
                     <a class="nav-link" href="{{ url_for('index') }}">Dashboard</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('add_domain') }}">Add Domain</a>
+                    <a class="nav-link" href="{{ url_for('add_domain') }}">Add Domain/Phish Extract</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('reports') }}">Reports</a>
@@ -44,6 +44,7 @@
                     <ul class="dropdown-menu" aria-labelledby="adminDropdown">
                         <li><a class="dropdown-item" href="{{ url_for('auth.create_user') }}">Create User</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">Manage Users</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.evidence_storage') }}">Evidence Storage</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.import_csv') }}">Import CSV</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.data_management') }}">Backup/Restore</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.threat_terms') }}">Threat Terms</a></li>
