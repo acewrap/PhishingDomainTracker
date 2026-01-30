@@ -92,9 +92,109 @@ def refresh_correlations():
     logger.info("Starting full correlation refresh...")
     count = 0
     all_evidence = EmailEvidence.query.all()
-    for ev in all_evidence:
-        count += correlate_evidence(ev.id)
 
-    db.session.commit()
+    # 1. Collect all indicators from all evidence
+    all_extracted_domains = set()
+    all_extracted_ips = set()
+
+    # Pre-parse indicators to avoid repeated JSON parsing
+    evidence_indicators = {} # {evidence_id: {'domains': set, 'ips': set}}
+
+    for ev in all_evidence:
+        indicators = {}
+        if ev.extracted_indicators:
+            try:
+                indicators = json.loads(ev.extracted_indicators)
+            except:
+                pass
+
+        domains = set(indicators.get('domains', []))
+        ips = set(indicators.get('ips', []))
+
+        all_extracted_domains.update(domains)
+        all_extracted_ips.update(ips)
+
+        evidence_indicators[ev.id] = {'domains': domains, 'ips': ips}
+
+    # 2. Batch fetch matching PhishingDomains
+    domain_map = {} # domain_name -> PhishingDomain object
+    ip_map = {}     # ip_address -> list of PhishingDomain objects
+
+    def batch_fetch(model, attribute, values, chunk_size=500):
+        results = []
+        values_list = list(values)
+        for i in range(0, len(values_list), chunk_size):
+            chunk = values_list[i:i + chunk_size]
+            if not chunk: continue
+            results.extend(model.query.filter(attribute.in_(chunk)).all())
+        return results
+
+    if all_extracted_domains:
+        matched_domains = batch_fetch(PhishingDomain, PhishingDomain.domain_name, all_extracted_domains)
+        for d in matched_domains:
+            domain_map[d.domain_name] = d
+
+    if all_extracted_ips:
+        matched_ips = batch_fetch(PhishingDomain, PhishingDomain.ip_address, all_extracted_ips)
+        for d in matched_ips:
+            if d.ip_address not in ip_map:
+                ip_map[d.ip_address] = []
+            ip_map[d.ip_address].append(d)
+
+    # 3. Batch fetch existing correlations
+    # To optimize memory, we fetch only the tuples (evidence_id, domain_id, type)
+    existing_correlations = set(
+        db.session.query(
+            EvidenceCorrelation.evidence_id,
+            EvidenceCorrelation.domain_id,
+            EvidenceCorrelation.correlation_type
+        ).all()
+    )
+
+    new_correlations = []
+
+    # 4. Match in memory
+    for ev in all_evidence:
+        indicators = evidence_indicators.get(ev.id)
+        if not indicators: continue
+
+        # Check Domains
+        for domain_str in indicators['domains']:
+            matched_domain = domain_map.get(domain_str)
+            if matched_domain:
+                key = (ev.id, matched_domain.id, 'Domain Match')
+                if key not in existing_correlations:
+                    corr = EvidenceCorrelation(
+                        evidence_id=ev.id,
+                        domain_id=matched_domain.id,
+                        correlation_type='Domain Match',
+                        details=f"Extracted domain {domain_str} matches monitored domain."
+                    )
+                    new_correlations.append(corr)
+                    existing_correlations.add(key)
+                    count += 1
+
+        # Check IPs
+        for ip_str in indicators['ips']:
+            matched_domains_list = ip_map.get(ip_str, [])
+            for md in matched_domains_list:
+                key = (ev.id, md.id, 'IP Match')
+                if key not in existing_correlations:
+                    corr = EvidenceCorrelation(
+                        evidence_id=ev.id,
+                        domain_id=md.id,
+                        correlation_type='IP Match',
+                        details=f"Extracted IP {ip_str} matches domain {md.domain_name} IP."
+                    )
+                    new_correlations.append(corr)
+                    existing_correlations.add(key)
+                    count += 1
+
+    # 5. Bulk Insert
+    if new_correlations:
+        # Use bulk_save_objects for performance
+        db.session.bulk_save_objects(new_correlations)
+        db.session.commit()
+
     logger.info(f"Correlation refresh complete. Found {count} new matches.")
     return count
