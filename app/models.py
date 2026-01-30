@@ -38,6 +38,7 @@ class PhishingDomain(db.Model):
     has_mx_record = db.Column(db.Boolean, default=False)
     mx_records = db.Column(db.Text, nullable=True)
     manual_status = db.Column(db.String(50), nullable=True)
+    whois_snapshot = db.Column(db.Text, nullable=True)
 
     # Correlation / Fingerprinting
     asn_number = db.Column(db.String(50), nullable=True)
@@ -55,6 +56,10 @@ class PhishingDomain(db.Model):
             return 'Blue'
         if self.manual_status == 'Confirmed Phish':
             return 'Red'
+        if self.manual_status == 'Potential Phish':
+            return 'Red'
+        if self.manual_status == 'Brown':
+            return 'Brown'
 
         # 2. Remediated (Historical)
         if self.date_remediated:

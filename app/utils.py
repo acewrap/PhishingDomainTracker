@@ -157,6 +157,20 @@ def get_threat_terms():
 _BLUE_DOMAINS_CACHE = None
 _BLUE_DOMAINS_CACHE_TIMESTAMP = 0
 
+FOR_SALE_KEYWORDS = [
+    "domain is for sale",
+    "domain available for sale",
+    "buy this domain",
+    "inquire about this domain",
+    "parked by",
+    "godaddy_parked",
+    "sedoparking",
+    "dan.com",
+    "huge domains",
+    "domainagents",
+    "this domain name is registered"
+]
+
 def get_blue_domains():
     global _BLUE_DOMAINS_CACHE, _BLUE_DOMAINS_CACHE_TIMESTAMP
     import time
@@ -179,10 +193,10 @@ def get_blue_domains():
 
 def scan_page_content(html_content, base_url=None):
     """
-    Analyzes the HTML content to check for login page indicators, blue domain links, and artifacts.
-    Returns a dict: {'is_login': bool, 'blue_links': list, 'scripts': list, 'stylesheets': list, 'favicon_url': str}
+    Analyzes the HTML content to check for login page indicators, blue domain links, artifacts, and 'For Sale' status.
+    Returns a dict: {'is_login': bool, 'blue_links': list, 'scripts': list, 'stylesheets': list, 'favicon_url': str, 'is_for_sale': bool}
     """
-    result = {'is_login': False, 'blue_links': [], 'scripts': [], 'stylesheets': [], 'favicon_url': None}
+    result = {'is_login': False, 'blue_links': [], 'scripts': [], 'stylesheets': [], 'favicon_url': None, 'is_for_sale': False}
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -228,6 +242,16 @@ def scan_page_content(html_content, base_url=None):
             if inp.get('type', '').lower() == 'password':
                 logger.info("Found password input field.")
                 result['is_login'] = True
+                break
+
+        # Check for 'For Sale' keywords
+        text_content_lower = soup.get_text().lower()
+        html_content_lower = html_content.lower()
+
+        for keyword in FOR_SALE_KEYWORDS:
+            if keyword in text_content_lower or keyword in html_content_lower:
+                logger.info(f"Found 'For Sale' keyword: {keyword}")
+                result['is_for_sale'] = True
                 break
 
         if not result['is_login']:
@@ -311,6 +335,33 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def fetch_whois_data(domain_name):
+    """
+    Fetches raw Whois data from WhoisXML API.
+    Returns the JSON dict or None.
+    """
+    if not WHOISXML_API_KEY:
+        logger.warning("WHOISXML_API_KEY not set. Skipping Whois fetch.")
+        return None
+
+    try:
+        url = "https://www.whoisxmlapi.com/whoisserver/WhoisService"
+        params = {
+            'apiKey': WHOISXML_API_KEY,
+            'domainName': domain_name,
+            'outputFormat': 'JSON',
+            'ignoreRawTexts': 1
+        }
+        response = http.get(url, params=params, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"WhoisXML API returned {response.status_code}: {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error calling WhoisXML API: {e}")
+        return None
+
 def check_mx_record(domain_name):
     """
     Checks if the domain has any MX records.
@@ -380,72 +431,58 @@ def enrich_domain(domain_obj):
     # 1. WhoisXML API
     if WHOISXML_API_KEY:
         log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='WhoisXML', api_key_name='WHOISXML_API_KEY')
-        try:
-            url = "https://www.whoisxmlapi.com/whoisserver/WhoisService"
-            params = {
-                'apiKey': WHOISXML_API_KEY,
-                'domainName': domain_obj.domain_name,
-                'outputFormat': 'JSON',
-                'ignoreRawTexts': 1
-            }
-            response = http.get(url, params=params, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                whois_record = data.get('WhoisRecord', {})
-                
-                # Update registrar
-                if 'registrarName' in whois_record:
-                     domain_obj.registrar = whois_record.get('registrarName')
-                
-                # Update registration status (simplistic check for now)
-                # In reality, might need to parse dates or status codes
-                if whois_record.get('parseCode') == 0:
-                     domain_obj.registration_status = "Registered"
-                else:
-                     domain_obj.registration_status = "Unknown/Available"
+        data = fetch_whois_data(domain_obj.domain_name)
+        if data:
+            whois_record = data.get('WhoisRecord', {})
 
-                # Extract and parse registration date
-                created_date_str = whois_record.get('createdDate')
-                if not created_date_str:
-                    registry_data = whois_record.get('registryData')
-                    if registry_data:
-                        created_date_str = registry_data.get('createdDate')
+            # Update registrar
+            if 'registrarName' in whois_record:
+                    domain_obj.registrar = whois_record.get('registrarName')
 
-                if created_date_str:
-                    try:
-                        # WhoisXML often returns dates like "2018-06-17 11:23:51.000 UTC" or ISO format
-                        # We try to parse the first part if it looks like YYYY-MM-DD
-                        # or use datetime.fromisoformat if applicable (Python 3.7+)
-
-                        # Simple parsing strategy:
-                        # 1. Try to take the first 19 chars if it's "YYYY-MM-DD HH:MM:SS"
-                        # 2. Handle 'T' separator
-
-                        # Remove ' UTC' or other timezones for simplicity if present at the end
-                        clean_date_str = created_date_str.replace(' UTC', '').replace('Z', '')
-
-                        # Attempt to handle potential milliseconds .000
-                        if '.' in clean_date_str:
-                            clean_date_str = clean_date_str.split('.')[0]
-
-                        # Replace T with space
-                        clean_date_str = clean_date_str.replace('T', ' ')
-
-                        domain_obj.registration_date = datetime.strptime(clean_date_str, '%Y-%m-%d %H:%M:%S')
-                    except ValueError:
-                        try:
-                            # Fallback: try just YYYY-MM-DD
-                            domain_obj.registration_date = datetime.strptime(clean_date_str.split(' ')[0], '%Y-%m-%d')
-                        except ValueError:
-                             logger.warning(f"Could not parse createdDate: {created_date_str}")
-                             domain_obj.registration_date = None
-                else:
-                    domain_obj.registration_date = None
-
+            # Update registration status (simplistic check for now)
+            # In reality, might need to parse dates or status codes
+            if whois_record.get('parseCode') == 0:
+                    domain_obj.registration_status = "Registered"
             else:
-                logger.error(f"WhoisXML API returned {response.status_code}: {response.text}")
-        except Exception as e:
-            logger.error(f"Error calling WhoisXML API: {e}")
+                    domain_obj.registration_status = "Unknown/Available"
+
+            # Extract and parse registration date
+            created_date_str = whois_record.get('createdDate')
+            if not created_date_str:
+                registry_data = whois_record.get('registryData')
+                if registry_data:
+                    created_date_str = registry_data.get('createdDate')
+
+            if created_date_str:
+                try:
+                    # WhoisXML often returns dates like "2018-06-17 11:23:51.000 UTC" or ISO format
+                    # We try to parse the first part if it looks like YYYY-MM-DD
+                    # or use datetime.fromisoformat if applicable (Python 3.7+)
+
+                    # Simple parsing strategy:
+                    # 1. Try to take the first 19 chars if it's "YYYY-MM-DD HH:MM:SS"
+                    # 2. Handle 'T' separator
+
+                    # Remove ' UTC' or other timezones for simplicity if present at the end
+                    clean_date_str = created_date_str.replace(' UTC', '').replace('Z', '')
+
+                    # Attempt to handle potential milliseconds .000
+                    if '.' in clean_date_str:
+                        clean_date_str = clean_date_str.split('.')[0]
+
+                    # Replace T with space
+                    clean_date_str = clean_date_str.replace('T', ' ')
+
+                    domain_obj.registration_date = datetime.strptime(clean_date_str, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    try:
+                        # Fallback: try just YYYY-MM-DD
+                        domain_obj.registration_date = datetime.strptime(clean_date_str.split(' ')[0], '%Y-%m-%d')
+                    except ValueError:
+                            logger.warning(f"Could not parse createdDate: {created_date_str}")
+                            domain_obj.registration_date = None
+            else:
+                domain_obj.registration_date = None
     else:
         logger.warning("WHOISXML_API_KEY not set. Skipping Whois enrichment.")
 
@@ -510,6 +547,34 @@ def enrich_domain(domain_obj):
         else:
             logger.info(f"No login page detected for {domain_obj.domain_name}")
             domain_obj.has_login_page = False
+
+        # Check for Brown/For Sale status
+        if scan_result.get('is_for_sale'):
+             # Only move if current status allows (e.g., Yellow/Default)
+             if domain_obj.threat_status in ['Yellow', 'Orange']:
+                  domain_obj.manual_status = 'Brown'
+                  logger.info(f"Domain {domain_obj.domain_name} detected as 'For Sale'. Moving to Brown.")
+
+                  if WHOISXML_API_KEY:
+                       whois_data = fetch_whois_data(domain_obj.domain_name)
+                       if whois_data:
+                            # Store relevant snapshot
+                            whois_record = whois_data.get('WhoisRecord', {})
+                            snapshot = {
+                                'registrant': whois_record.get('registrant', {}),
+                                'administrativeContact': whois_record.get('administrativeContact', {}),
+                                'technicalContact': whois_record.get('technicalContact', {}),
+                                'registrarName': whois_record.get('registrarName'),
+                                'createdDate': whois_record.get('createdDate')
+                            }
+                            domain_obj.whois_snapshot = json.dumps(snapshot)
+
+                  ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                  new_note = f"[{ts}] Status changed to Brown (For Sale) based on page content."
+                  if domain_obj.action_taken:
+                      domain_obj.action_taken += f"\n{new_note}"
+                  else:
+                      domain_obj.action_taken = new_note
 
         # Check Blue Links
         if scan_result.get('blue_links'):

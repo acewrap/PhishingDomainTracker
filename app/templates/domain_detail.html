@@ -140,6 +140,8 @@
                             <option value="Allowlisted" {% if domain.manual_status == 'Allowlisted' %}selected{% endif %}>Allowlisted (Green)</option>
                             <option value="Internal/Pentest" {% if domain.manual_status == 'Internal/Pentest' %}selected{% endif %}>Internal / Pentest (Blue)</option>
                             <option value="Confirmed Phish" {% if domain.manual_status == 'Confirmed Phish' %}selected{% endif %}>Confirmed Phish (Red)</option>
+                            <option value="Potential Phish" {% if domain.manual_status == 'Potential Phish' %}selected{% endif %}>Potential Phish (Red)</option>
+                            <option value="Brown" {% if domain.manual_status == 'Brown' %}selected{% endif %}>Brown (For Sale)</option>
                             <option value="Takedown Requested" {% if domain.manual_status == 'Takedown Requested' %}selected{% endif %}>Takedown Requested (Purple)</option>
                          </select>
                     </div>
