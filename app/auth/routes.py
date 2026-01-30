@@ -126,11 +126,10 @@ def profile():
         secret_key = secrets.token_hex(32)
         secret_hash = hashlib.sha256(secret_key.encode()).hexdigest()
 
-        # Deactivate/Remove old keys if we only want one per user
-        # For now, let's just add a new one or replace existing
-        existing_key = APIKey.query.filter_by(user_id=current_user.id).first()
-        if existing_key:
-            db.session.delete(existing_key)
+        # Deactivate/Remove old keys to enforce single key policy
+        existing_keys = APIKey.query.filter_by(user_id=current_user.id).all()
+        for key in existing_keys:
+            db.session.delete(key)
 
         new_api_key = APIKey(
             user_id=current_user.id,
