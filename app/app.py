@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import db, migrate, bcrypt, login_manager
 from app.models import PhishingDomain, User, EmailEvidence
-from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites
+from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites, fetch_whois_data
 from app.forms import AddDomainForm
 from app.queue_service import add_task
 from app.reporting import generate_evidence_pdf
@@ -246,6 +246,21 @@ def update_domain(id):
 
     if old_values['manual_status'] != domain.manual_status:
         changes.append(('manual_status', old_values['manual_status'], domain.manual_status))
+
+        # If manually set to Brown, ensure we have a snapshot for tracking
+        if domain.manual_status == 'Brown':
+             # Fetch Whois Snapshot
+             whois_data = fetch_whois_data(domain.domain_name)
+             if whois_data:
+                 whois_record = whois_data.get('WhoisRecord', {})
+                 snapshot = {
+                     'registrant': whois_record.get('registrant', {}),
+                     'administrativeContact': whois_record.get('administrativeContact', {}),
+                     'technicalContact': whois_record.get('technicalContact', {}),
+                     'registrarName': whois_record.get('registrarName'),
+                     'createdDate': whois_record.get('createdDate')
+                 }
+                 domain.whois_snapshot = json.dumps(snapshot)
 
     for field, old, new in changes:
          log_security_event(

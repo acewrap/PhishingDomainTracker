@@ -1,11 +1,12 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.models import PhishingDomain
 from app.extensions import db
-from app.utils import fetch_and_check_domain, check_mx_record, log_domain_event, http, logger, analyze_page_content, scan_page_content
+from app.utils import fetch_and_check_domain, check_mx_record, log_domain_event, http, logger, analyze_page_content, scan_page_content, fetch_whois_data
 from app.queue_service import add_task
 import requests
 from datetime import datetime
 import socket
+import json
 
 scheduler = BackgroundScheduler()
 
@@ -24,6 +25,7 @@ def init_scheduler(app):
         scheduler.add_job(check_red_domains, 'interval', hours=24, args=[app])
         scheduler.add_job(check_orange_domains, 'interval', hours=24, args=[app])
         scheduler.add_job(check_yellow_domains, 'interval', weeks=1, args=[app])
+        scheduler.add_job(check_brown_domains, 'interval', weeks=1, args=[app])
         scheduler.add_job(check_grey_domains, 'interval', weeks=4, args=[app])
         # Daily correlation refresh
         scheduler.add_job(trigger_correlation_refresh, 'interval', days=1, args=[app])
@@ -174,6 +176,7 @@ def check_yellow_domains(app):
                 protocols = ['https://', 'http://']
                 found_active = False
                 found_login = False
+                found_brown = False
 
                 for protocol in protocols:
                     try:
@@ -191,10 +194,37 @@ def check_yellow_domains(app):
                                 append_action_note(domain, reason)
                                 db.session.commit()
                                 log_domain_event(domain.domain_name, 'Yellow', 'Confirmed Phish', reason)
+                                break # Stop processing this domain
+
+                            if scan_res.get('is_for_sale'):
+                                found_brown = True
+                                domain.manual_status = 'Brown'
+                                # Fetch Whois Snapshot
+                                whois_data = fetch_whois_data(domain.domain_name)
+                                if whois_data:
+                                    whois_record = whois_data.get('WhoisRecord', {})
+                                    snapshot = {
+                                        'registrant': whois_record.get('registrant', {}),
+                                        'administrativeContact': whois_record.get('administrativeContact', {}),
+                                        'technicalContact': whois_record.get('technicalContact', {}),
+                                        'registrarName': whois_record.get('registrarName'),
+                                        'createdDate': whois_record.get('createdDate')
+                                    }
+                                    domain.whois_snapshot = json.dumps(snapshot)
+
+                                reason = "Status changed to Brown (For Sale) based on page content."
+                                append_action_note(domain, reason)
+                                db.session.commit()
+                                log_domain_event(domain.domain_name, 'Yellow', 'Brown', reason)
+                                break # Stop processing this domain
 
                             break
                     except Exception:
                         pass
+
+                # If we already handled it as Confirmed Phish or Brown, skip Red transition
+                if domain.manual_status in ['Confirmed Phish', 'Brown']:
+                    continue
 
                 if found_active:
                     # Transition to Red
@@ -213,6 +243,66 @@ def check_yellow_domains(app):
 
             except Exception as e:
                 logger.error(f"Error checking yellow domain {domain.domain_name}: {e}")
+
+def check_brown_domains(app):
+    with app.app_context():
+        # Brown: Manual Status 'Brown' (For Sale)
+        domains = PhishingDomain.query.filter_by(manual_status='Brown').all()
+
+        for domain in domains:
+            try:
+                if not domain.whois_snapshot:
+                    # No snapshot, cannot compare. Maybe create one?
+                    # Or just log warning.
+                    continue
+
+                current_data = fetch_whois_data(domain.domain_name)
+                if not current_data:
+                    continue
+
+                try:
+                    old_snapshot = json.loads(domain.whois_snapshot)
+                except json.JSONDecodeError:
+                    continue
+
+                current_record = current_data.get('WhoisRecord', {})
+                current_snapshot = {
+                    'registrant': current_record.get('registrant', {}),
+                    'administrativeContact': current_record.get('administrativeContact', {}),
+                    'technicalContact': current_record.get('technicalContact', {}),
+                    'registrarName': current_record.get('registrarName'),
+                    'createdDate': current_record.get('createdDate')
+                }
+
+                # Compare
+                changes = []
+                # Compare basic fields
+                if old_snapshot.get('registrarName') != current_snapshot.get('registrarName'):
+                    changes.append(f"Registrar changed from '{old_snapshot.get('registrarName')}' to '{current_snapshot.get('registrarName')}'")
+
+                # Compare contacts (just name and email and org for simplicity)
+                for contact_type in ['registrant', 'administrativeContact', 'technicalContact']:
+                    old_c = old_snapshot.get(contact_type, {})
+                    new_c = current_snapshot.get(contact_type, {})
+
+                    if old_c.get('name') != new_c.get('name'):
+                         changes.append(f"{contact_type.capitalize()} Name changed from '{old_c.get('name')}' to '{new_c.get('name')}'")
+                    if old_c.get('email') != new_c.get('email'):
+                         changes.append(f"{contact_type.capitalize()} Email changed from '{old_c.get('email')}' to '{new_c.get('email')}'")
+                    if old_c.get('organization') != new_c.get('organization'):
+                         changes.append(f"{contact_type.capitalize()} Org changed from '{old_c.get('organization')}' to '{new_c.get('organization')}'")
+
+                if changes:
+                    # Transition to Potential Phish (Red)
+                    domain.manual_status = 'Potential Phish'
+                    change_log = "; ".join(changes)
+                    reason = f"Status changed to Potential Phish because Whois Data Changed: {change_log}"
+                    append_action_note(domain, reason)
+                    db.session.commit()
+                    log_domain_event(domain.domain_name, 'Brown', 'Potential Phish', reason)
+
+            except Exception as e:
+                logger.error(f"Error checking brown domain {domain.domain_name}: {e}")
 
 def check_grey_domains(app):
     with app.app_context():

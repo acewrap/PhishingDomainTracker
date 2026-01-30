@@ -73,6 +73,7 @@ stateDiagram-v2
 
     state "Yellow (Monitored)" as Yellow
     state "Orange (MX Record)" as Orange
+    state "Brown (For Sale)" as Brown
     state "Red (Active Threat)" as Red
     state "Purple (Takedown Req)" as Purple
     state "Grey (Remediated)" as Grey
@@ -80,6 +81,8 @@ stateDiagram-v2
     state "Blue (Internal)" as Blue
 
     Yellow --> Red: Website Returns 200 OK / Login Found
+    Yellow --> Brown: "For Sale" Content Detected
+    Brown --> Red: Whois Data Changed (Potential Phish)
     Orange --> Red: Website Becomes Active
 
     Red --> Grey: Site Unreachable (24h Check)
@@ -139,6 +142,7 @@ The application runs several background jobs to keep data fresh:
 | **Every 24 Hours** | **Orange** | Checks for changes in MX records. Logs any modifications. |
 | **Daily** | **System** | Refreshes correlations between all Email Evidence and Phishing Domains. |
 | **Weekly** | **Yellow** | Checks if the site has become active (200 OK) or hosts a login page. Moves to **Red** if positive. |
+| **Weekly** | **Brown** | Checks if Whois data (Registrant, Admin, Tech, Registrar) has changed compared to the snapshot. Moves to **Red** (Potential Phish) if changes are detected. |
 | **Monthly** | **Grey** | "Lazarus Check" - Checks if a remediated site is back online. Moves to **Red** if active. |
 
 ### 4. Reporting & Takedown

@@ -12,7 +12,7 @@
 - **Regenerate API Key:** If you lose your secret key or need to rotate credentials, click "Regenerate API Key". **Warning:** This invalidates the old key immediately. The new Secret Key will be shown once—copy it immediately.
 
 ## Dashboard Usage
-- **Dashboard:** View the list of tracked domains. Rows are color-coded based on threat status.
+- **Dashboard:** View the list of tracked domains. Rows are color-coded based on threat status (including the new **Brown** status for domains detected as "For Sale").
 - **Add Domain:** Submit a new domain for tracking.
 - **Reports:** Export domain data to CSV.
 
