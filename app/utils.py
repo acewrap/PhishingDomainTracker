@@ -508,21 +508,11 @@ def enrich_domain(domain_obj):
                 scan_data = response.json()
                 uuid = scan_data.get('uuid')
                 domain_obj.urlscan_uuid = uuid
+                domain_obj.screenshot_link = scan_data.get('result')
+                domain_obj.urlscan_status = 'pending'
+                domain_obj.last_urlscan_date = datetime.utcnow()
                 
-                # We can't get the result immediately. 
-                # Ideally, we would need to poll, or just store the UUID and let the user click a link.
-                # However, for 'enrichment' we might want some immediate feedback if it was already scanned recently?
-                # For now, let's just store the UUID and link to the result page.
-                
-                domain_obj.screenshot_link = scan_data.get('result') # This is usually the result page URL
-                
-                # To get the actual screenshot image or status, we'd need to query the result API 
-                # using the UUID after some time.
-                # For this MVP, we will set the result link.
-                
-                # Optimistic 'Active' status if scan submission worked
-                # domain_obj.is_active = True
-                pass
+                logger.info(f"Urlscan submitted for {domain_obj.domain_name}, UUID: {uuid}")
                 
             elif response.status_code == 400:
                  # Often means domain didn't resolve or invalid
@@ -923,3 +913,108 @@ def find_related_sites(domain_id):
 
     related.sort(key=lambda x: x['score'], reverse=True)
     return related
+
+def process_urlscan_result(domain_obj, app):
+    """
+    Checks if a Urlscan result is ready, downloads screenshot, and enriches domain.
+    Returns True if processed, False if still pending or failed.
+    """
+    if not URLSCAN_API_KEY:
+        return False
+
+    if not domain_obj.urlscan_uuid:
+        return False
+
+    uuid = domain_obj.urlscan_uuid
+    url = f"https://urlscan.io/api/v1/result/{uuid}/"
+
+    try:
+        response = http.get(url, timeout=10)
+        if response.status_code == 404:
+            # Still pending or invalid
+            return False
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Check for screenshot URL
+            task = data.get('task', {})
+            page = data.get('page', {})
+            lists = data.get('lists', {})
+
+            # Enrich Domain Data
+            if not domain_obj.ip_address and page.get('ip'):
+                domain_obj.ip_address = page.get('ip')
+
+            if not domain_obj.asn_number and page.get('asn'):
+                 domain_obj.asn_number = str(page.get('asn').replace('AS', ''))
+
+            if not domain_obj.asn_org and page.get('asnname'):
+                 domain_obj.asn_org = page.get('asnname')
+
+            # Download Screenshot
+            screenshot_url = task.get('screenshotURL')
+            if screenshot_url:
+                try:
+                    # Download image
+                    img_resp = http.get(screenshot_url, timeout=20)
+                    if img_resp.status_code == 200:
+                        filename = f"urlscan_{uuid}.png"
+                        static_dir = os.path.join(app.root_path, 'static', 'screenshots')
+                        if not os.path.exists(static_dir):
+                            os.makedirs(static_dir)
+
+                        filepath = os.path.join(static_dir, filename)
+                        with open(filepath, 'wb') as f:
+                            f.write(img_resp.content)
+
+                        # Create Screenshot Record
+                        from app.models import DomainScreenshot
+                        from app.extensions import db
+
+                        # Check if already exists?
+                        existing = DomainScreenshot.query.filter_by(urlscan_uuid=uuid).first()
+                        if not existing:
+                            screenshot = DomainScreenshot(
+                                domain_id=domain_obj.id,
+                                image_filename=filename,
+                                urlscan_uuid=uuid,
+                                scan_data=json.dumps(data)
+                            )
+                            db.session.add(screenshot)
+                            logger.info(f"Downloaded screenshot for {domain_obj.domain_name}")
+
+                except Exception as e:
+                    logger.error(f"Failed to download screenshot: {e}")
+
+            domain_obj.urlscan_status = 'complete'
+            domain_obj.last_urlscan_date = datetime.utcnow()
+            return True
+
+    except Exception as e:
+        logger.error(f"Error processing urlscan result for {domain_obj.domain_name}: {e}")
+
+    return False
+
+def poll_pending_urlscans(app):
+    """
+    Polls pending Urlscan submissions.
+    """
+    from app.models import PhishingDomain
+    from app.extensions import db
+
+    with app.app_context():
+        # Find domains with pending status or new status (if uuid present)
+        pending_domains = PhishingDomain.query.filter(
+            PhishingDomain.urlscan_uuid.isnot(None),
+            PhishingDomain.urlscan_status.in_(['new', 'pending'])
+        ).all()
+
+        count = 0
+        for domain in pending_domains:
+            if process_urlscan_result(domain, app):
+                count += 1
+                db.session.commit()
+
+        if count > 0:
+            logger.info(f"Processed {count} Urlscan results.")

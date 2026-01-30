@@ -40,6 +40,10 @@ class PhishingDomain(db.Model):
     manual_status = db.Column(db.String(50), nullable=True)
     whois_snapshot = db.Column(db.Text, nullable=True)
 
+    # Urlscan Polling
+    urlscan_status = db.Column(db.String(50), default='new') # new, pending, complete, failed
+    last_urlscan_date = db.Column(db.DateTime, nullable=True)
+
     # Correlation / Fingerprinting
     asn_number = db.Column(db.String(50), nullable=True)
     asn_org = db.Column(db.String(255), nullable=True)
@@ -118,6 +122,19 @@ class EvidenceCorrelation(db.Model):
 
     def __repr__(self):
         return f'<EvidenceCorrelation {self.evidence_id} <-> {self.domain_id}>'
+
+class DomainScreenshot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    domain_id = db.Column(db.Integer, db.ForeignKey('phishing_domain.id'), nullable=False)
+    image_filename = db.Column(db.String(255), nullable=False)
+    urlscan_uuid = db.Column(db.String(100), nullable=True)
+    scan_data = db.Column(db.Text, nullable=True) # JSON full result
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    domain = db.relationship('PhishingDomain', backref=db.backref('screenshots', lazy=True, order_by="desc(DomainScreenshot.created_at)"))
+
+    def __repr__(self):
+        return f'<DomainScreenshot {self.id} for Domain {self.domain_id}>'
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
