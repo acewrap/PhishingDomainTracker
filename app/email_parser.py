@@ -7,6 +7,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Compile regex patterns once at module level
+URL_PATTERN = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
+IP_PATTERN = re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b')
+EMAIL_PATTERN = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+IP_EXACT_PATTERN = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+
 def defang(text):
     if not text:
         return ""
@@ -27,18 +33,15 @@ def extract_indicators(text):
         return indicators
 
     # URL Regex
-    url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
-    urls = url_pattern.findall(text)
+    urls = URL_PATTERN.findall(text)
     indicators['urls'] = list(set(urls))
 
     # IP Regex
-    ip_pattern = re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b')
-    ips = ip_pattern.findall(text)
+    ips = IP_PATTERN.findall(text)
     indicators['ips'] = list(set(ips))
 
     # Email Regex
-    email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
-    emails = email_pattern.findall(text)
+    emails = EMAIL_PATTERN.findall(text)
     indicators['emails'] = list(set(emails))
 
     # Simple Domain extraction from URLs and Emails
@@ -63,7 +66,7 @@ def extract_indicators(text):
     # Remove IPs from domains
     final_domains = []
     for d in domains:
-        if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', d):
+        if not IP_EXACT_PATTERN.match(d):
              final_domains.append(d)
 
     indicators['domains'] = list(final_domains)
