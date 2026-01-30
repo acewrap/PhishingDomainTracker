@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="display-4">Analytics Dashboard</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Threat Status Distribution</div>
+            <div class="card-body">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Activity Over Time (New Domains)</div>
+            <div class="card-body">
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Top Registrars</div>
+            <div class="card-body">
+                <canvas id="registrarChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Top ASNs (Infrastructure)</div>
+            <div class="card-body">
+                <canvas id="asnChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Top Name Servers</div>
+            <div class="card-body">
+                <canvas id="nsChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">Quarterly Reports</div>
+            <div class="card-body">
+                <form action="{{ url_for('dashboard.quarterly_report') }}" method="POST" class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="year" class="col-form-label">Year</label>
+                    </div>
+                    <div class="col-auto">
+                        <select name="year" id="year" class="form-select">
+                            {% for y in years %}
+                            <option value="{{ y }}">{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label for="quarter" class="col-form-label">Quarter</label>
+                    </div>
+                    <div class="col-auto">
+                        <select name="quarter" id="quarter" class="form-select">
+                            <option value="1">Q1 (Jan-Mar)</option>
+                            <option value="2">Q2 (Apr-Jun)</option>
+                            <option value="3">Q3 (Jul-Sep)</option>
+                            <option value="4">Q4 (Oct-Dec)</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">Generate PDF Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Data from Flask
+    const registrarData = {{ registrar_counts | tojson }};
+    const asnData = {{ asn_counts | tojson }};
+    const nsData = {{ ns_counts | tojson }};
+    const activityData = {{ activity_counts | tojson }};
+    const statusData = {{ status_counts | tojson }};
+
+    // Colors
+    const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+        '#FF9F40', '#E7E9ED', '#76A346', '#0047AB', '#800080'
+    ];
+
+    // Registrar Chart
+    new Chart(document.getElementById('registrarChart'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(registrarData),
+            datasets: [{
+                data: Object.values(registrarData),
+                backgroundColor: colors
+            }]
+        }
+    });
+
+    // ASN Chart
+    new Chart(document.getElementById('asnChart'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(asnData),
+            datasets: [{
+                data: Object.values(asnData),
+                backgroundColor: colors
+            }]
+        }
+    });
+
+    // NS Chart
+    new Chart(document.getElementById('nsChart'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(nsData),
+            datasets: [{
+                data: Object.values(nsData),
+                backgroundColor: colors
+            }]
+        }
+    });
+
+    // Activity Chart
+    new Chart(document.getElementById('activityChart'), {
+        type: 'line',
+        data: {
+            labels: Object.keys(activityData),
+            datasets: [{
+                label: 'New Domains Detected',
+                data: Object.values(activityData),
+                borderColor: '#36A2EB',
+                fill: false
+            }]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // Status Chart
+    new Chart(document.getElementById('statusChart'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(statusData),
+            datasets: [{
+                label: 'Domains by Threat Status',
+                data: Object.values(statusData),
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.2)', // Red
+                    'rgba(255, 206, 86, 0.2)', // Yellow
+                    'rgba(75, 192, 192, 0.2)', // Green
+                    'rgba(153, 102, 255, 0.2)', // Purple
+                    'rgba(255, 159, 64, 0.2)'  // Orange
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)',
+                    'rgba(255, 159, 64, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+</script>
+{% endblock %}

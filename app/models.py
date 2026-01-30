@@ -37,6 +37,7 @@ class PhishingDomain(db.Model):
     urlscan_uuid = db.Column(db.String(100), nullable=True)
     has_mx_record = db.Column(db.Boolean, default=False)
     mx_records = db.Column(db.Text, nullable=True)
+    ns_records = db.Column(db.Text, nullable=True)
     manual_status = db.Column(db.String(50), nullable=True)
     whois_snapshot = db.Column(db.Text, nullable=True)
 

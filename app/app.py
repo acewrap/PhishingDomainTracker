@@ -6,7 +6,7 @@ from app.models import PhishingDomain, User, EmailEvidence
 from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites, fetch_whois_data
 from app.forms import AddDomainForm
 from app.queue_service import add_task
-from app.reporting import generate_evidence_pdf
+from app.reporting import generate_evidence_pdf, generate_excel_report
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
@@ -84,11 +84,13 @@ login_manager.login_view = 'auth.login'
 from app.auth import auth
 from app.api import api_v1
 from app.admin import admin_bp
+from app.dashboard import dashboard_bp
 
 csrf.exempt(api_v1)
 app.register_blueprint(auth)
 app.register_blueprint(api_v1)
 app.register_blueprint(admin_bp, url_prefix='/admin')
+app.register_blueprint(dashboard_bp)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -358,6 +360,7 @@ def reports():
         start_date_str = request.form.get('start_date')
         end_date_str = request.form.get('end_date')
         selected_statuses = request.form.getlist('statuses')
+        export_format = request.form.get('export_format', 'csv')
 
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
@@ -374,6 +377,15 @@ def reports():
 
         # Filter by computed threat_status
         filtered_domains = [d for d in domains if d.threat_status in selected_statuses]
+
+        if export_format == 'excel':
+             excel_io = generate_excel_report(filtered_domains)
+             return send_file(
+                excel_io,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name='report.xlsx'
+             )
 
         # Generate CSV
         output = io.StringIO()
