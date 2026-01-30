@@ -82,7 +82,7 @@ def generate_backup_data():
 
     # Serialize Evidence Correlations
     correlations = []
-    for corr in EvidenceCorrelation.query.all():
+    for corr in EvidenceCorrelation.query.options(joinedload(EvidenceCorrelation.domain)).all():
         c_data = {
             'evidence_old_id': corr.evidence_id,
             'domain_name': corr.domain.domain_name, # Link by unique domain name
