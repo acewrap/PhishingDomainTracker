@@ -381,13 +381,12 @@ def enrich_domain(domain_obj):
     if WHOISXML_API_KEY:
         log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='WhoisXML', api_key_name='WHOISXML_API_KEY')
         try:
-            # Note: This is a placeholder URL and structure. 
-            # In a real scenario, check the specific API endpoint and params.
-            url = f"https://www.whoisxmlapi.com/whoisserver/WhoisService"
+            url = "https://www.whoisxmlapi.com/whoisserver/WhoisService"
             params = {
                 'apiKey': WHOISXML_API_KEY,
                 'domainName': domain_obj.domain_name,
-                'outputFormat': 'JSON'
+                'outputFormat': 'JSON',
+                'ignoreRawTexts': 1
             }
             response = http.get(url, params=params, timeout=10)
             if response.status_code == 200:
