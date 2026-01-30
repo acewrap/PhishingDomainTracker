@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy.orm import joinedload
 from app.models import User, APIKey, PhishingDomain, ThreatTerm, EmailEvidence, EvidenceCorrelation, Task
 from app.extensions import db
 
@@ -66,7 +67,7 @@ def generate_backup_data():
 
     # Serialize Email Evidence
     evidence = []
-    for ev in EmailEvidence.query.all():
+    for ev in EmailEvidence.query.options(joinedload(EmailEvidence.user)).all():
         e_data = {
             'id': ev.id,
             'filename': ev.filename,
