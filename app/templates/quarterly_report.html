@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Quarterly Phishing Report</title>
+    <style>
+        body { font-family: sans-serif; }
+        h1 { text-align: center; color: #333; }
+        h2 { border-bottom: 2px solid #666; padding-bottom: 10px; margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .summary-box { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; margin-bottom: 20px; }
+        .metric { font-size: 1.2em; margin-bottom: 10px; }
+        .metric strong { color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Quarterly Phishing Report</h1>
+    <h3 style="text-align: center;">Q{{ data.quarter }} {{ data.year }}</h3>
+    <p style="text-align: center;">{{ data.start_date.strftime('%B %d, %Y') }} - {{ data.end_date.strftime('%B %d, %Y') }}</p>
+
+    <div class="summary-box">
+        <div class="metric"><strong>Total Domains Detected:</strong> {{ data.total_domains }}</div>
+        <div class="metric"><strong>Total Takedowns:</strong> {{ data.total_takedowns }}</div>
+        <div class="metric"><strong>Takedown Rate:</strong> {{ data.takedown_rate }}%</div>
+        <div class="metric"><strong>Avg. Remediation Time:</strong> {{ data.avg_remediation_hours }} Hours</div>
+    </div>
+
+    <h2>Top Registrars</h2>
+    <table>
+        <tr>
+            <th>Registrar</th>
+            <th>Count</th>
+        </tr>
+        {% for reg, count in data.top_registrars %}
+        <tr>
+            <td>{{ reg }}</td>
+            <td>{{ count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Top Infrastructure Providers (ASNs)</h2>
+    <table>
+        <tr>
+            <th>ASN Organization</th>
+            <th>Count</th>
+        </tr>
+        {% for asn, count in data.top_asns %}
+        <tr>
+            <td>{{ asn }}</td>
+            <td>{{ count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Domain Details (Top 50 Recent)</h2>
+    <table>
+        <tr>
+            <th>Domain</th>
+            <th>Entered</th>
+            <th>Status</th>
+        </tr>
+        {% for domain in data.domains[:50] %}
+        <tr>
+            <td>{{ domain.domain_name }}</td>
+            <td>{{ domain.date_entered.strftime('%Y-%m-%d') }}</td>
+            <td>{{ domain.threat_status }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

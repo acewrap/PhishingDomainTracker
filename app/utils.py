@@ -382,6 +382,26 @@ def check_mx_record(domain_name):
 
     return records
 
+def check_ns_record(domain_name):
+    """
+    Checks if the domain has any NS records.
+    Returns a list of NS record strings if found, empty list otherwise.
+    """
+    records = []
+    try:
+        answers = dns.resolver.resolve(domain_name, 'NS')
+        if answers:
+            logger.info(f"NS records found for {domain_name}")
+            for rdata in answers:
+                records.append(rdata.to_text())
+            records.sort()
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.exception.Timeout):
+        pass
+    except Exception as e:
+        logger.warning(f"Error checking NS records for {domain_name}: {e}")
+
+    return records
+
 def fetch_and_check_domain(domain_name):
     """
     Fetches the domain content (trying https then http) and checks for login indicators and blue links.
@@ -655,6 +675,13 @@ def enrich_domain(domain_obj):
     else:
         domain_obj.has_mx_record = False
         domain_obj.mx_records = None
+
+    # 5. Check for NS records
+    ns_records = check_ns_record(domain_obj.domain_name)
+    if ns_records:
+        domain_obj.ns_records = "\n".join(ns_records)
+    else:
+        domain_obj.ns_records = None
 
     return domain_obj
 
