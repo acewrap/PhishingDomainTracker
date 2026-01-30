@@ -33,6 +33,46 @@
                         <strong>Screenshot / Report Link:</strong> <a href="{{ domain.screenshot_link }}" target="_blank">{{ domain.screenshot_link }}</a>
                     </div>
                 {% endif %}
+
+                {% if domain.screenshots %}
+                    <div class="mt-4">
+                        <h5>Screenshots</h5>
+
+                        <!-- Latest Screenshot -->
+                        {% set latest = domain.screenshots[0] %}
+                        <div class="mb-3">
+                            <p><strong>Latest Scan:</strong> {{ latest.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            <a href="{{ url_for('static', filename='screenshots/' + latest.image_filename) }}" target="_blank">
+                                <img src="{{ url_for('static', filename='screenshots/' + latest.image_filename) }}" class="img-fluid img-thumbnail" style="max-height: 400px;" alt="Domain Screenshot">
+                            </a>
+                        </div>
+
+                        <!-- History -->
+                        {% if domain.screenshots|length > 1 %}
+                            <p>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#screenshotHistory" aria-expanded="false" aria-controls="screenshotHistory">
+                                    Show History ({{ domain.screenshots|length - 1 }})
+                                </button>
+                            </p>
+                            <div class="collapse" id="screenshotHistory">
+                                <div class="card card-body">
+                                    <ul class="list-group list-group-flush">
+                                        {% for shot in domain.screenshots[1:] %}
+                                            <li class="list-group-item">
+                                                <a href="{{ url_for('static', filename='screenshots/' + shot.image_filename) }}" target="_blank">
+                                                    {{ shot.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                                </a>
+                                                {% if shot.urlscan_uuid %}
+                                                    <small class="text-muted ms-2">(UUID: {{ shot.urlscan_uuid }})</small>
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
         </div>
 
