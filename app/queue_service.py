@@ -103,11 +103,11 @@ def process_next_task():
     Returns True if a task was processed, False otherwise.
     """
     # Lock/Select
-    # Simple implementation: fetch first pending.
-    # In distributed env, would need row locking (SELECT ... FOR UPDATE).
-    # Since we use SQLite/Postgres and likely 1 worker, this is okay.
+    # Use with_for_update(skip_locked=True) to handle distributed workers.
+    # skip_locked=True allows other workers to skip rows locked by this transaction, preventing bottlenecks.
+    # Note: SQLite will ignore this clause or handle it gracefully, making it safe for dev/test.
 
-    task = Task.query.filter_by(status='pending').order_by(Task.created_at.asc()).first()
+    task = Task.query.filter_by(status='pending').order_by(Task.created_at.asc()).with_for_update(skip_locked=True).first()
 
     if not task:
         return False
