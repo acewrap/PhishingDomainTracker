@@ -1,12 +1,13 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.models import PhishingDomain
 from app.extensions import db
-from app.utils import fetch_and_check_domain, check_mx_record, log_domain_event, http, logger, analyze_page_content, scan_page_content, fetch_whois_data, poll_pending_urlscans
+from app.utils import fetch_and_check_domain, check_mx_record, log_domain_event, http, logger, analyze_page_content, scan_page_content, fetch_whois_data, poll_pending_urlscans, adapter
 from app.queue_service import add_task
 import requests
 from datetime import datetime
 import socket
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 scheduler = BackgroundScheduler()
 
@@ -39,57 +40,82 @@ def trigger_correlation_refresh(app):
         add_task('refresh_correlations', {})
         logger.info("Scheduled task: refresh_correlations triggered.")
 
+def process_purple_domain(app, domain_id):
+    # Create a local session to ensure thread safety
+    local_http = requests.Session()
+    local_http.mount("https://", adapter)
+    local_http.mount("http://", adapter)
+    local_http.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    })
+
+    with app.app_context():
+        domain = PhishingDomain.query.get(domain_id)
+        if not domain:
+            return
+
+        try:
+            # Check 404 or no login/content
+            found_active = False
+            protocols = ['https://', 'http://']
+
+            for protocol in protocols:
+                url = f"{protocol}{domain.domain_name}"
+                try:
+                    resp = local_http.get(url, timeout=10, verify=False)
+                    if resp.status_code == 200:
+                        scan_res = scan_page_content(resp.text, base_url=resp.url)
+                        if scan_res.get('is_login'):
+                            found_active = True
+
+                        if scan_res.get('blue_links'):
+                            found_active = True
+                            domain.manual_status = 'Confirmed Phish'
+                            reason = f"Status changed to Confirmed Phish because linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
+                            append_action_note(domain, reason)
+                            log_domain_event(domain.domain_name, 'Purple', 'Confirmed Phish', reason)
+
+                        if found_active:
+                            break
+                except Exception:
+                    pass
+
+            if not found_active:
+                # Move to Yellow (or Orange)
+                old_status = 'Purple'
+                domain.manual_status = None
+                domain.date_remediated = None
+                domain.is_active = False
+
+                new_status = 'Orange' if domain.has_mx_record else 'Yellow'
+                reason = "Status changed to Inactive because Login kit not detected (404 or content removed)"
+                append_action_note(domain, reason)
+
+                log_domain_event(domain.domain_name, old_status, new_status, reason)
+
+            db.session.commit()
+
+        except Exception as e:
+            logger.error(f"Error checking purple domain {domain.domain_name}: {e}")
+            db.session.rollback()
+
 def check_purple_domains(app):
     with app.app_context():
         # Purple: Takedown Requested
-        domains = PhishingDomain.query.filter_by(manual_status='Takedown Requested').all()
-        for domain in domains:
+        domain_ids = [d.id for d in PhishingDomain.query.filter_by(manual_status='Takedown Requested').all()]
+
+    if not domain_ids:
+        return
+
+    # Use ThreadPoolExecutor for parallel processing
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(process_purple_domain, app, d_id) for d_id in domain_ids]
+        # Wait for all tasks to complete
+        for future in futures:
             try:
-                with db.session.begin_nested():
-                    # Check 404 or no login/content
-                    found_active = False
-                    protocols = ['https://', 'http://']
-
-                    for protocol in protocols:
-                        url = f"{protocol}{domain.domain_name}"
-                        try:
-                            resp = http.get(url, timeout=10, verify=False)
-                            if resp.status_code == 200:
-                                scan_res = scan_page_content(resp.text, base_url=resp.url)
-                                if scan_res.get('is_login'):
-                                    found_active = True
-
-                                if scan_res.get('blue_links'):
-                                    found_active = True
-                                    domain.manual_status = 'Confirmed Phish'
-                                    reason = f"Status changed to Confirmed Phish because linked images to Blue domains: {', '.join(scan_res['blue_links'])}"
-                                    append_action_note(domain, reason)
-                                    log_domain_event(domain.domain_name, 'Purple', 'Confirmed Phish', reason)
-
-                                if found_active:
-                                    break
-                        except Exception:
-                            pass
-
-                    if not found_active:
-                        # Move to Yellow (or Orange)
-                        old_status = 'Purple'
-                        domain.manual_status = None
-                        domain.date_remediated = None
-                        domain.is_active = False
-
-                        new_status = 'Orange' if domain.has_mx_record else 'Yellow'
-                        reason = "Status changed to Inactive because Login kit not detected (404 or content removed)"
-                        append_action_note(domain, reason)
-
-                        log_domain_event(domain.domain_name, old_status, new_status, reason)
-
-                    db.session.flush()
-
+                future.result()
             except Exception as e:
-                logger.error(f"Error checking purple domain {domain.domain_name}: {e}")
-
-        db.session.commit()
+                logger.error(f"Thread error in check_purple_domains: {e}")
 
 def check_red_domains(app):
     with app.app_context():
