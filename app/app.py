@@ -163,7 +163,7 @@ def add_domain():
 
             # Optional: auto-enrich on add
             if form.auto_enrich.data:
-                    enrich_domain(new_domain)
+                    enrich_domain(new_domain, user_id=current_user.username)
 
             db.session.add(new_domain)
             db.session.commit()
@@ -193,7 +193,7 @@ def domain_details(id):
 @login_required
 def enrich_domain_route(id):
     domain = PhishingDomain.query.get_or_404(id)
-    enrich_domain(domain)
+    enrich_domain(domain, user_id=current_user.username)
     db.session.commit()
     log_security_event('Enrichment Triggered', current_user.username, request.remote_addr, 'info', domain_name=domain.domain_name)
     flash(f'Enrichment triggered for {domain.domain_name}', 'info')
@@ -314,7 +314,7 @@ def enrich_domains():
     if domain_ids:
         domains = PhishingDomain.query.filter(PhishingDomain.id.in_(domain_ids)).all()
         for domain in domains:
-            enrich_domain(domain)
+            enrich_domain(domain, user_id=current_user.username)
             log_security_event('Enrichment Triggered', current_user.username, request.remote_addr, 'info', domain_name=domain.domain_name)
         db.session.commit()
         flash(f'Enrichment triggered for {len(domains)} domains.', 'success')

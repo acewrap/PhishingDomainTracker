@@ -423,10 +423,13 @@ def fetch_and_check_domain(domain_name):
 
     return None
 
-def enrich_domain(domain_obj):
+def enrich_domain(domain_obj, user_id=None):
     """
     Enriches the domain object with data from external APIs.
     Updates the domain_obj in place.
+
+    :param domain_obj: PhishingDomain object to enrich
+    :param user_id: Optional username/ID of the caller. If None, attempts to use current_user.
     """
     # Sanitize domain name
     if domain_obj.domain_name:
@@ -434,19 +437,14 @@ def enrich_domain(domain_obj):
 
     logger.info(f"Enriching domain: {domain_obj.domain_name}")
     
-    # automated/manual context logic?
-    # For now we don't know who called this function easily without passing it down.
-    # We can rely on the caller to log the "Enrichment Triggered" event,
-    # and here we log the specific API calls as requested.
-    # Requirement: "Log whenever the tool calls external APIs... Capture userid (or automated...)"
-    # Since this function doesn't take a user_id, we might need to inspect Flask global 'current_user' if available.
-
-    user_id = 'automated'
-    try:
-        if current_user and current_user.is_authenticated:
-            user_id = current_user.username
-    except:
-        pass # outside request context
+    # Determine context
+    if not user_id:
+        user_id = 'automated'
+        try:
+            if current_user and current_user.is_authenticated:
+                user_id = current_user.username
+        except:
+            pass # outside request context or no current_user
 
     # 1. WhoisXML API
     if WHOISXML_API_KEY:
