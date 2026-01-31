@@ -49,8 +49,20 @@ class UrlscanPollingTestCase(unittest.TestCase):
         # Mock Result Response (200)
         result_data = {
             'task': {'screenshotURL': 'http://urlscan.io/img.png'},
-            'page': {'ip': '1.2.3.4', 'asn': 'AS12345', 'asnname': 'Test ASN'},
-            'lists': {}
+            'page': {
+                'ip': '1.2.3.4',
+                'asn': 'AS12345',
+                'asnname': 'Test ASN',
+                'country': 'US',
+                'country_name': 'United States'
+            },
+            'lists': {},
+            'verdicts': {
+                'overall': {
+                    'malicious': True,
+                    'score': 100
+                }
+            }
         }
 
         # We need two responses: one for result JSON, one for image
@@ -72,6 +84,14 @@ class UrlscanPollingTestCase(unittest.TestCase):
         self.assertEqual(domain.ip_address, '1.2.3.4')
         self.assertEqual(domain.asn_number, '12345')
         self.assertEqual(domain.asn_org, 'Test ASN')
+
+        # Verify New Geolocation
+        self.assertEqual(domain.geolocation_iso, 'US')
+        self.assertEqual(domain.geolocation_country, 'United States')
+
+        # Verify Status Upgrade
+        self.assertEqual(domain.manual_status, 'Potential Phish')
+        self.assertIn('Urlscan Verdict: Malicious', domain.action_taken)
 
         # Verify Screenshot Created
         screenshot = DomainScreenshot.query.filter_by(urlscan_uuid='uuid-456').first()

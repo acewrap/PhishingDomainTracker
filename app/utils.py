@@ -681,6 +681,32 @@ def enrich_domain(domain_obj, user_id=None):
     else:
         domain_obj.ns_records = None
 
+    # 6. VirusTotal Reputation
+    if VIRUSTOTAL_API_KEY:
+        log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='VirusTotal Reputation', api_key_name='VIRUSTOTAL_API_KEY')
+        vt_stats = check_vt_reputation(domain_obj.domain_name, 'domain')
+        if vt_stats:
+            malicious = vt_stats.get('malicious', 0)
+            suspicious = vt_stats.get('suspicious', 0)
+
+            if malicious > 0 or suspicious > 0:
+                 log_msg = f"VirusTotal Reputation: {malicious} malicious, {suspicious} suspicious."
+                 logger.info(log_msg)
+
+                 ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                 note = f"[{ts}] {log_msg}"
+                 if domain_obj.action_taken:
+                      domain_obj.action_taken += f"\n{note}"
+                 else:
+                      domain_obj.action_taken = note
+
+                 # Upgrade status if malicious detected
+                 if malicious > 0:
+                      is_already_high = domain_obj.manual_status in ['Confirmed Phish', 'Potential Phish', 'Takedown Requested', 'Internal/Pentest', 'Allowlisted']
+                      if not is_already_high:
+                           domain_obj.manual_status = 'Potential Phish'
+                           logger.info(f"Upgraded {domain_obj.domain_name} to Potential Phish based on VirusTotal.")
+
     return domain_obj
 
 def report_to_vendors(domain_obj):
@@ -976,6 +1002,41 @@ def process_urlscan_result(domain_obj, app):
 
             if not domain_obj.asn_org and page.get('asnname'):
                  domain_obj.asn_org = page.get('asnname')
+
+            # Geolocation
+            if not domain_obj.geolocation_iso and page.get('country'):
+                 domain_obj.geolocation_iso = page.get('country')
+
+            if not domain_obj.geolocation_country:
+                 if page.get('country_name'):
+                      domain_obj.geolocation_country = page.get('country_name')
+                 elif page.get('server'):
+                      domain_obj.geolocation_country = page.get('server')
+
+            # Verdicts & Threats
+            verdicts = data.get('verdicts', {}).get('overall', {})
+            if verdicts.get('malicious'):
+                 # Check if we should upgrade status
+                 is_already_high = domain_obj.manual_status in ['Confirmed Phish', 'Potential Phish', 'Takedown Requested', 'Internal/Pentest', 'Allowlisted']
+
+                 ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                 note = f"Urlscan Verdict: Malicious (Score: {verdicts.get('score')})"
+
+                 if not is_already_high:
+                      domain_obj.manual_status = 'Potential Phish'
+                      logger.info(f"Upgraded {domain_obj.domain_name} to Potential Phish based on Urlscan verdict.")
+
+                 # Log to action_taken
+                 new_note = f"[{ts}] {note}"
+                 if domain_obj.action_taken:
+                      domain_obj.action_taken += f"\n{new_note}"
+                 else:
+                      domain_obj.action_taken = new_note
+
+                 # Log geolocation if available
+                 if domain_obj.geolocation_country:
+                      geo_note = f"[{ts}] Urlscan Geo: {domain_obj.geolocation_country} ({domain_obj.geolocation_iso})"
+                      domain_obj.action_taken += f"\n{geo_note}"
 
             # Download Screenshot
             screenshot_url = task.get('screenshotURL')

@@ -52,6 +52,10 @@ class PhishingDomain(db.Model):
     jarm_hash = db.Column(db.String(255), nullable=True)
     html_artifacts = db.Column(db.Text, nullable=True)
 
+    # Geolocation
+    geolocation_iso = db.Column(db.String(10), nullable=True)
+    geolocation_country = db.Column(db.String(100), nullable=True)
+
     @property
     def threat_status(self):
         # 1. Manual Overrides (High Priority)
