@@ -18,7 +18,7 @@ class TestPurpleTransition(unittest.TestCase):
             db.session.remove()
             db.drop_all()
 
-    @patch('app.scheduler.http.get')
+    @patch('requests.Session.get')
     def test_purple_transitions_to_yellow_if_no_mx(self, mock_get):
         # Mock 404 response
         mock_response = MagicMock()
@@ -47,7 +47,7 @@ class TestPurpleTransition(unittest.TestCase):
             self.assertIsNone(domain.date_remediated, "Date remediated should be None (not Grey)")
             self.assertEqual(domain.threat_status, 'Yellow', "Threat status should be Yellow")
 
-    @patch('app.scheduler.http.get')
+    @patch('requests.Session.get')
     def test_purple_transitions_to_orange_if_mx_exists(self, mock_get):
         # Mock 404 response
         mock_response = MagicMock()
