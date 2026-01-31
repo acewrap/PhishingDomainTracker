@@ -35,10 +35,10 @@ def correlate_evidence(evidence_id):
                 new_matches += 1
 
     # 2. Check IPs
-    for ip in extracted_ips:
-        matched_domains = PhishingDomain.query.filter_by(ip_address=ip).all()
+    if extracted_ips:
+        matched_domains = PhishingDomain.query.filter(PhishingDomain.ip_address.in_(extracted_ips)).all()
         for md in matched_domains:
-            if create_correlation(evidence, md, 'IP Match', f"Extracted IP {ip} matches domain {md.domain_name} IP."):
+            if create_correlation(evidence, md, 'IP Match', f"Extracted IP {md.ip_address} matches domain {md.domain_name} IP."):
                 new_matches += 1
 
     # 3. Check URLs (fuzzy match - url contains domain)
