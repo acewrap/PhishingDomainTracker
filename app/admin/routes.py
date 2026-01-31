@@ -247,7 +247,7 @@ def import_csv():
                 new_domain.manual_status = 'Yellow'
 
             if auto_enrich:
-                enrich_domain(new_domain)
+                enrich_domain(new_domain, user_id=current_user.username)
 
             db.session.add(new_domain)
             log_security_event('Domain Imported', current_user.username, request.remote_addr, 'info', domain_name=new_domain.domain_name)
