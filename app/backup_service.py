@@ -20,7 +20,7 @@ def generate_backup_data():
 
     # Serialize API Keys
     api_keys = []
-    for key in APIKey.query.all():
+    for key in APIKey.query.options(joinedload(APIKey.user)).all():
         k_data = {
             'user_username': key.user.username, # Store username to resolve relationship
             'access_key': key.access_key,
