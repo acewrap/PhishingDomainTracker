@@ -39,10 +39,14 @@
                             {% endif %}
                         </td>
                         <td>
-                            <!-- We will add routes for PDF and View later or now? -->
-                            <!-- User Goal 4: PDF Reporting. "Generate a summary report for each submission." -->
-                            <!-- We need a route for this. Let's assume 'download_evidence_report' -->
-                             <a href="{{ url_for('download_evidence_report', id=ev.id) }}" class="btn btn-sm btn-outline-primary">PDF Report</a>
+                             <div class="btn-group" role="group">
+                                <a href="{{ url_for('admin.evidence_detail', id=ev.id) }}" class="btn btn-sm btn-outline-info">View</a>
+                                <a href="{{ url_for('download_evidence_report', id=ev.id) }}" class="btn btn-sm btn-outline-primary">PDF</a>
+                                <form action="{{ url_for('admin.delete_evidence', id=ev.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                             </div>
                         </td>
                     </tr>
                 {% endfor %}

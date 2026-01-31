@@ -143,11 +143,11 @@ def add_domain():
             log_security_event('Email Uploaded', current_user.username, request.remote_addr, 'info', filename=filename)
             flash(f'File {filename} uploaded and processing started.', 'success')
 
-            # Determine redirect - maybe to Evidence Storage page?
-            # Since that page isn't fully built/linked in menu yet, maybe index or stay?
-            # But the plan says "Web UI: Admin Evidence Storage" is next step.
-            # Assuming it will exist:
-            return redirect(url_for('index')) # Or evidence storage
+            # Determine redirect
+            if current_user.is_admin:
+                 return redirect(url_for('admin.evidence_storage'))
+            else:
+                 return redirect(url_for('index'))
 
         # Handle Domain Name
         if form.domain_name.data:
