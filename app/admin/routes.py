@@ -6,7 +6,7 @@ from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required, current_user
 from app.admin import admin_bp
-from app.models import User, APIKey, PhishingDomain, ThreatTerm, EmailEvidence
+from app.models import User, APIKey, PhishingDomain, ThreatTerm, EmailEvidence, EvidenceCorrelation
 from app.extensions import db, bcrypt
 from app.utils import admin_required, log_security_event, enrich_domain
 from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm
@@ -86,6 +86,43 @@ def delete_threat_term(id):
 def evidence_storage():
     evidence_list = EmailEvidence.query.order_by(EmailEvidence.submitted_at.desc()).all()
     return render_template('admin/evidence_storage.html', evidence_list=evidence_list)
+
+@admin_bp.route('/evidence/<int:id>')
+@login_required
+@admin_required
+def evidence_detail(id):
+    evidence = EmailEvidence.query.get_or_404(id)
+    headers = {}
+    if evidence.headers:
+        try:
+            headers = json.loads(evidence.headers)
+        except:
+            headers = {'raw': evidence.headers}
+
+    indicators = {}
+    if evidence.extracted_indicators:
+        try:
+            indicators = json.loads(evidence.extracted_indicators)
+        except:
+            indicators = {'raw': evidence.extracted_indicators}
+
+    return render_template('admin/evidence_detail.html', evidence=evidence, headers=headers, indicators=indicators)
+
+@admin_bp.route('/evidence/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_evidence(id):
+    evidence = EmailEvidence.query.get_or_404(id)
+
+    # Delete correlations first
+    EvidenceCorrelation.query.filter_by(evidence_id=id).delete()
+
+    db.session.delete(evidence)
+    db.session.commit()
+
+    log_security_event('Evidence Deleted', current_user.username, request.remote_addr, 'info', filename=evidence.filename)
+    flash(f'Evidence {evidence.filename} deleted.', 'success')
+    return redirect(url_for('admin.evidence_storage'))
 
 @admin_bp.route('/refresh_correlations', methods=['POST'])
 @login_required

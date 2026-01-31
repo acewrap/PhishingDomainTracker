@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>Evidence Detail: {{ evidence.filename }}</h2>
+            <a href="{{ url_for('admin.evidence_storage') }}" class="btn btn-outline-secondary">Back to List</a>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Metadata</div>
+            <div class="card-body">
+                <p><strong>Submitted By:</strong> {{ evidence.user.username if evidence.user else 'Unknown' }}</p>
+                <p><strong>Submitted At:</strong> {{ evidence.submitted_at.strftime('%Y-%m-%d %H:%M') if evidence.submitted_at else 'N/A' }}</p>
+                <p><strong>Filename:</strong> {{ evidence.filename }}</p>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Extracted Indicators</div>
+            <div class="card-body">
+                {% if indicators and indicators is mapping %}
+                    {% for key, values in indicators.items() %}
+                        <h5>{{ key|capitalize }}</h5>
+                        {% if values and values is iterable and values is not string %}
+                            <ul>
+                            {% for val in values %}
+                                <li>{{ val }}</li>
+                            {% endfor %}
+                            </ul>
+                        {% else %}
+                             <p>{{ values }}</p>
+                        {% endif %}
+                    {% endfor %}
+                {% elif indicators %}
+                    <pre>{{ indicators }}</pre>
+                {% else %}
+                    <p class="text-muted">No indicators extracted.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Correlated Domains</div>
+            <div class="card-body">
+                 {% if evidence.correlations %}
+                    <ul class="list-group">
+                    {% for corr in evidence.correlations %}
+                        <li class="list-group-item">
+                            <a href="{{ url_for('domain_details', id=corr.domain_id) }}">{{ corr.domain.domain_name }}</a>
+                            <span class="badge bg-info ms-2">{{ corr.correlation_type }}</span>
+                            <br><small class="text-muted">{{ corr.details }}</small>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No correlations found.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Email Body</div>
+            <div class="card-body">
+                <pre class="bg-light p-3 border" style="white-space: pre-wrap;">{{ evidence.body }}</pre>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Email Headers</div>
+            <div class="card-body">
+                 {% if headers and headers is mapping %}
+                    <table class="table table-sm table-bordered">
+                        <tbody>
+                        {% for k, v in headers.items() %}
+                            <tr>
+                                <th style="width: 30%">{{ k }}</th>
+                                <td style="word-break: break-all;">{{ v }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                 {% elif headers %}
+                    <pre>{{ headers }}</pre>
+                 {% else %}
+                    <p class="text-muted">No headers found.</p>
+                 {% endif %}
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mb-4">
+             <a href="{{ url_for('download_evidence_report', id=evidence.id) }}" class="btn btn-primary me-2">Download PDF Report</a>
+             <form action="{{ url_for('admin.delete_evidence', id=evidence.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this evidence?');">
+                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                 <button type="submit" class="btn btn-danger">Delete Evidence</button>
+             </form>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
