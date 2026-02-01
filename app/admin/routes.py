@@ -49,9 +49,14 @@ def threat_terms():
         term = form.term.data.strip()
         if term:
             if not ThreatTerm.query.filter_by(term=term).first():
-                new_term = ThreatTerm(term=term)
-                db.session.add(new_term)
-                db.session.commit()
+                try:
+                    new_term = ThreatTerm(term=term)
+                    db.session.add(new_term)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'Error adding term: {e}', 'danger')
+                    return redirect(url_for('admin.threat_terms'))
 
                 log_security_event(
                     'Threat String Added',

@@ -10,6 +10,7 @@ from app.reporting import generate_evidence_pdf, generate_excel_report
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
+import json
 import uuid
 import csv
 import io
@@ -165,13 +166,18 @@ def add_domain():
             if form.auto_enrich.data:
                     enrich_domain(new_domain, user_id=current_user.username)
 
-            db.session.add(new_domain)
-            db.session.commit()
+            try:
+                db.session.add(new_domain)
+                db.session.commit()
 
-            log_security_event('Domain Added', current_user.username, request.remote_addr, 'info', domain_name=domain_name)
+                log_security_event('Domain Added', current_user.username, request.remote_addr, 'info', domain_name=domain_name)
 
-            flash(f'Domain {domain_name} added successfully.', 'success')
-            return redirect(url_for('index'))
+                flash(f'Domain {domain_name} added successfully.', 'success')
+                return redirect(url_for('index'))
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error adding domain: {str(e)}', 'danger')
+                return redirect(url_for('add_domain'))
 
     return render_template('add_domain.html', form=form)
 
@@ -230,7 +236,12 @@ def update_domain(id):
     domain.has_login_page = 'has_login_page' in request.form
     domain.manual_status = request.form.get('manual_status')
     
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating domain: {str(e)}', 'danger')
+        return redirect(url_for('domain_details', id=domain.id))
 
     # Compare and log
     changes = []
@@ -252,17 +263,31 @@ def update_domain(id):
         # If manually set to Brown, ensure we have a snapshot for tracking
         if domain.manual_status == 'Brown':
              # Fetch Whois Snapshot
-             whois_data = fetch_whois_data(domain.domain_name)
-             if whois_data:
-                 whois_record = whois_data.get('WhoisRecord', {})
-                 snapshot = {
-                     'registrant': whois_record.get('registrant', {}),
-                     'administrativeContact': whois_record.get('administrativeContact', {}),
-                     'technicalContact': whois_record.get('technicalContact', {}),
-                     'registrarName': whois_record.get('registrarName'),
-                     'createdDate': whois_record.get('createdDate')
-                 }
-                 domain.whois_snapshot = json.dumps(snapshot)
+             try:
+                 whois_data = fetch_whois_data(domain.domain_name)
+                 if whois_data:
+                     whois_record = whois_data.get('WhoisRecord')
+                     if not whois_record:
+                         whois_record = {}
+
+                     snapshot = {
+                         'registrant': whois_record.get('registrant', {}),
+                         'administrativeContact': whois_record.get('administrativeContact', {}),
+                         'technicalContact': whois_record.get('technicalContact', {}),
+                         'registrarName': whois_record.get('registrarName'),
+                         'createdDate': whois_record.get('createdDate')
+                     }
+                     domain.whois_snapshot = json.dumps(snapshot)
+             except Exception as e:
+                 # Log error but don't crash
+                 log_security_event(
+                     'Whois Snapshot Failed',
+                     current_user.username,
+                     request.remote_addr,
+                     'error',
+                     domain_name=domain.domain_name,
+                     error=str(e)
+                 )
 
     for field, old, new in changes:
          log_security_event(
