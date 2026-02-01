@@ -878,13 +878,15 @@ def find_related_sites(domain_id):
     Returns a list of dicts: [{'domain': domain_obj, 'score': int, 'pivots': list}]
     """
     from app.models import PhishingDomain
+    from sqlalchemy import or_
+
     source = PhishingDomain.query.get(domain_id)
     if not source:
         return []
 
     related = []
-    candidates = PhishingDomain.query.filter(PhishingDomain.id != domain_id).all()
 
+    # Parse artifacts first to use in filters
     source_artifacts = {}
     if source.html_artifacts:
         try:
@@ -894,6 +896,41 @@ def find_related_sites(domain_id):
 
     source_scripts = set(source_artifacts.get('scripts', []))
     source_css = set(source_artifacts.get('stylesheets', []))
+
+    # Optimization: Filter candidates in DB
+    filters = []
+
+    if source.ip_address:
+        filters.append(PhishingDomain.ip_address == source.ip_address)
+
+    if source.asn_number:
+         filters.append(PhishingDomain.asn_number == source.asn_number)
+
+    if source.favicon_mmh3:
+         filters.append(PhishingDomain.favicon_mmh3 == source.favicon_mmh3)
+
+    if source.jarm_hash:
+         filters.append(PhishingDomain.jarm_hash == source.jarm_hash)
+
+    if source.registrar:
+         filters.append(PhishingDomain.registrar == source.registrar)
+
+    # Artifact filters
+    for script in sorted(list(source_scripts))[:20]:
+         if script and len(script) > 3:
+              filters.append(PhishingDomain.html_artifacts.like(f'%"{script}"%'))
+
+    for css in sorted(list(source_css))[:20]:
+         if css and len(css) > 3:
+              filters.append(PhishingDomain.html_artifacts.like(f'%"{css}"%'))
+
+    if not filters:
+         return []
+
+    candidates = PhishingDomain.query.filter(
+        PhishingDomain.id != domain_id,
+        or_(*filters)
+    ).all()
 
     for candidate in candidates:
         score = 0
