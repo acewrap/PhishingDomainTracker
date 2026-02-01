@@ -83,6 +83,7 @@
                     <div class="col-auto">
                         <button type="submit" class="btn btn-primary">Generate PDF Report</button>
                     </div>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 </form>
             </div>
         </div>
@@ -92,11 +93,20 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Data from Flask
-    const registrarData = {{ registrar_counts | tojson }};
-    const asnData = {{ asn_counts | tojson }};
-    const nsData = {{ ns_counts | tojson }};
-    const activityData = {{ activity_counts | tojson }};
-    const statusData = {{ status_counts | tojson }};
+    const registrarLabels = {{ registrar_labels | tojson }};
+    const registrarValues = {{ registrar_data | tojson }};
+
+    const asnLabels = {{ asn_labels | tojson }};
+    const asnValues = {{ asn_data | tojson }};
+
+    const nsLabels = {{ ns_labels | tojson }};
+    const nsValues = {{ ns_data | tojson }};
+
+    const activityLabels = {{ activity_labels | tojson }};
+    const activityValues = {{ activity_data | tojson }};
+
+    const statusLabels = {{ status_labels | tojson }};
+    const statusValues = {{ status_data | tojson }};
 
     // Colors
     const colors = [
@@ -108,9 +118,9 @@
     new Chart(document.getElementById('registrarChart'), {
         type: 'doughnut',
         data: {
-            labels: Object.keys(registrarData),
+            labels: registrarLabels,
             datasets: [{
-                data: Object.values(registrarData),
+                data: registrarValues,
                 backgroundColor: colors
             }]
         }
@@ -120,9 +130,9 @@
     new Chart(document.getElementById('asnChart'), {
         type: 'doughnut',
         data: {
-            labels: Object.keys(asnData),
+            labels: asnLabels,
             datasets: [{
-                data: Object.values(asnData),
+                data: asnValues,
                 backgroundColor: colors
             }]
         }
@@ -132,9 +142,9 @@
     new Chart(document.getElementById('nsChart'), {
         type: 'doughnut',
         data: {
-            labels: Object.keys(nsData),
+            labels: nsLabels,
             datasets: [{
-                data: Object.values(nsData),
+                data: nsValues,
                 backgroundColor: colors
             }]
         }
@@ -144,10 +154,10 @@
     new Chart(document.getElementById('activityChart'), {
         type: 'line',
         data: {
-            labels: Object.keys(activityData),
+            labels: activityLabels,
             datasets: [{
                 label: 'New Domains Detected',
-                data: Object.values(activityData),
+                data: activityValues,
                 borderColor: '#36A2EB',
                 fill: false
             }]
@@ -163,10 +173,10 @@
     new Chart(document.getElementById('statusChart'), {
         type: 'bar',
         data: {
-            labels: Object.keys(statusData),
+            labels: statusLabels,
             datasets: [{
                 label: 'Domains by Threat Status',
-                data: Object.values(statusData),
+                data: statusValues,
                 backgroundColor: [
                     'rgba(255, 99, 132, 0.2)', // Red
                     'rgba(255, 206, 86, 0.2)', // Yellow
