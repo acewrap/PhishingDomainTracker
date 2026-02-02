@@ -1,7 +1,7 @@
 import re
 import email
 from email import policy
-from email.parser import BytesParser
+from email.parser import BytesParser, HeaderParser
 import extract_msg
 import logging
 
@@ -88,22 +88,69 @@ def parse_email(file_stream, filename):
             try:
                 msg = extract_msg.Message(file_stream)
 
-                # Headers
-                if hasattr(msg, 'headerDict'):
-                    result['headers'] = msg.headerDict
-                elif msg.header:
+                # --- Headers Extraction ---
+                headers = {}
+
+                # Strategy 1: msg.headerDict (Parsed dictionary)
+                if hasattr(msg, 'headerDict') and msg.headerDict:
+                    headers = msg.headerDict
+                    logger.info(f"Extracted headers using headerDict for {filename}")
+
+                # Strategy 2: msg.header (Raw string or object)
+                if not headers and hasattr(msg, 'header') and msg.header:
+                    if isinstance(msg.header, dict):
+                        headers = msg.header
+                        logger.info(f"Extracted headers using msg.header (dict) for {filename}")
+                    else:
+                        # Assume string (raw headers)
+                        try:
+                            # Use email library to parse raw header string
+                            raw_headers = str(msg.header)
+                            parsed_headers = HeaderParser().parsestr(raw_headers)
+                            headers = dict(parsed_headers.items())
+                            logger.info(f"Extracted headers by parsing msg.header string for {filename}")
+                        except Exception as e:
+                            logger.warning(f"Failed to parse raw msg.header: {e}")
+                            headers = {"Raw-Header": str(msg.header)[:1000]} # Truncate for safety
+
+                # Strategy 3: Explicit transport_headers check (common fallback)
+                if not headers:
+                     # Sometimes 'transport_headers' is a property or key in props
+                     # This is a best-effort check for specific extract-msg quirks
                      try:
-                         result['headers'] = dict(msg.header)
-                     except:
-                         result['headers'] = {"Raw-Header": str(msg.header)}
+                         # 0x007D is PR_TRANSPORT_MESSAGE_HEADERS
+                         transport_headers = msg.getProps().get('007D001F') or msg.getProps().get('007D001E')
+                         if transport_headers:
+                             parsed_headers = HeaderParser().parsestr(transport_headers.value)
+                             headers = dict(parsed_headers.items())
+                             logger.info(f"Extracted headers from PR_TRANSPORT_MESSAGE_HEADERS for {filename}")
+                     except Exception as e:
+                         logger.debug(f"Failed to extract via properties: {e}")
 
-                # Body
+                result['headers'] = headers
+                if not headers:
+                    logger.warning(f"No headers found for MSG file: {filename}")
+
+                # --- Body Extraction ---
                 body_content = msg.body
-                if not body_content:
-                    # Fallback to HTML body if plain text is missing
-                    body_content = msg.htmlBody
+                source = "body"
 
-                # Ensure string
+                if not body_content:
+                    body_content = msg.htmlBody
+                    source = "htmlBody"
+
+                # Fallback: RTF Body?
+                if not body_content:
+                    try:
+                        # Some messages only have RTF.
+                        # extract-msg < 0.28 didn't auto-decompress, but 0.55 should.
+                        if hasattr(msg, 'rtfBody') and msg.rtfBody:
+                             body_content = msg.rtfBody
+                             source = "rtfBody"
+                    except Exception:
+                        pass
+
+                # Ensure string decoding
                 if isinstance(body_content, bytes):
                     try:
                         body_content = body_content.decode('utf-8', errors='replace')
@@ -111,13 +158,16 @@ def parse_email(file_stream, filename):
                         logger.warning(f"Failed to decode MSG body bytes: {e}")
                         body_content = str(body_content)
 
+                if body_content:
+                    logger.info(f"Extracted body from {source} (len={len(body_content)}) for {filename}")
+                else:
+                    logger.warning(f"No body content found for MSG file: {filename}")
+
                 result['body'] = body_content if body_content else ""
 
                 msg.close()
             except Exception as e:
-                logger.error(f"Error extracting MSG content: {e}")
-                # Don't re-raise immediately, try to return what we have?
-                # But if msg creation failed, we have nothing.
+                logger.error(f"Critical error extracting MSG content: {e}", exc_info=True)
                 raise e
 
         else:
@@ -173,8 +223,9 @@ def parse_email(file_stream, filename):
         # Extract indicators
         if result['body']:
             result['indicators'] = extract_indicators(result['body'])
+            logger.info(f"Extracted {len(result['indicators'].get('urls', []))} URLs from {filename}")
         else:
-            logger.warning(f"No body content extracted for {filename}")
+            logger.warning(f"No body content extracted for {filename}, skipping indicator extraction")
 
     except Exception as e:
         logger.error(f"Error parsing email {filename}: {e}", exc_info=True)
