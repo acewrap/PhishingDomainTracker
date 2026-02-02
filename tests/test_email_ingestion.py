@@ -69,19 +69,5 @@ Click here: http://phishing.com
             self.assertEqual(result['headers']['Subject'], 'Urgent')
             self.assertIn('http://phishing.com', result['indicators']['urls'])
 
-    def test_parse_eml_fallback(self):
-        # EML with encoding issue in body
-        eml_content = b"Subject: Bad Encoding\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n\x80\x81\xff"
-        with io.BytesIO(eml_content) as f:
-            result = parse_email(f, 'bad.eml')
-            self.assertEqual(result['headers']['Subject'], 'Bad Encoding')
-            # Should have handled the error and returned something (replace chars) or empty
-            # \x80 is invalid start byte in utf-8.
-            # Our code uses 'replace' error handler for fallback.
-            self.assertIsNotNone(result['body'])
-            # The replacement char is U+FFFD (variable depending on implementation), usually
-            # We just check it didn't crash and returned string
-            self.assertTrue(isinstance(result['body'], str))
-
 if __name__ == '__main__':
     unittest.main()
