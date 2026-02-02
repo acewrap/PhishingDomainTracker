@@ -85,48 +85,99 @@ def parse_email(file_stream, filename):
 
     try:
         if filename.lower().endswith('.msg'):
-            msg = extract_msg.Message(file_stream)
-            result['headers'] = dict(msg.header)
-            result['body'] = msg.body
-            msg.close()
+            try:
+                msg = extract_msg.Message(file_stream)
+
+                # Headers
+                if hasattr(msg, 'headerDict'):
+                    result['headers'] = msg.headerDict
+                elif msg.header:
+                     try:
+                         result['headers'] = dict(msg.header)
+                     except:
+                         result['headers'] = {"Raw-Header": str(msg.header)}
+
+                # Body
+                body_content = msg.body
+                if not body_content:
+                    # Fallback to HTML body if plain text is missing
+                    body_content = msg.htmlBody
+
+                # Ensure string
+                if isinstance(body_content, bytes):
+                    try:
+                        body_content = body_content.decode('utf-8', errors='replace')
+                    except Exception as e:
+                        logger.warning(f"Failed to decode MSG body bytes: {e}")
+                        body_content = str(body_content)
+
+                result['body'] = body_content if body_content else ""
+
+                msg.close()
+            except Exception as e:
+                logger.error(f"Error extracting MSG content: {e}")
+                # Don't re-raise immediately, try to return what we have?
+                # But if msg creation failed, we have nothing.
+                raise e
+
         else:
             # Assume .eml
             msg = BytesParser(policy=policy.default).parse(file_stream)
             result['headers'] = dict(msg.items())
 
-            # Get body
-            body = ""
+            # Helper to extract text from a part
+            def get_part_text(part):
+                try:
+                    # Try default extraction
+                    content = part.get_content()
+                    return content
+                except Exception as e:
+                    logger.warning(f"Error getting content from part: {e}")
+                    # Fallback: manually decode payload
+                    try:
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            # Try common encodings
+                            for encoding in ['utf-8', 'latin-1', 'windows-1252']:
+                                try:
+                                    return payload.decode(encoding)
+                                except:
+                                    continue
+                            # Last resort: replace errors
+                            return payload.decode('utf-8', errors='replace')
+                    except Exception as e2:
+                        logger.error(f"Failed to extract payload: {e2}")
+                return ""
+
+            body_parts = []
             if msg.is_multipart():
                 for part in msg.walk():
-                    content_type = part.get_content_type()
-                    content_disposition = str(part.get("Content-Disposition"))
-                    try:
-                        if "attachment" not in content_disposition:
-                            if content_type == "text/plain":
-                                body += part.get_content()
-                            elif content_type == "text/html":
-                                # We could strip HTML here, but for now just appending
-                                # For better analysis, maybe keep HTML separate?
-                                # But requirement says "extract headers, body content".
-                                body += part.get_content()
-                    except:
-                        pass
-            else:
-                body = msg.get_content()
+                    # Check disposition
+                    content_disposition = str(part.get("Content-Disposition", ""))
+                    if "attachment" in content_disposition:
+                        continue
 
-            result['body'] = body
+                    content_type = part.get_content_type()
+                    if content_type in ["text/plain", "text/html"]:
+                        text = get_part_text(part)
+                        if text:
+                            body_parts.append(text)
+            else:
+                # Single part
+                text = get_part_text(msg)
+                if text:
+                    body_parts.append(text)
+
+            result['body'] = "\n".join(body_parts)
 
         # Extract indicators
-        result['indicators'] = extract_indicators(result['body'])
-
-        # Defang indicators for safe display in result (optional, but requested for display)
-        # However, we probably want to store raw indicators for correlation, and defang only for display.
-        # But the Requirement said: "All extracted indicators must be defanged... before being displayed".
-        # So we store raw, but maybe we can also store a defanged version or just defang in the template/PDF.
-        # I'll keep them raw here.
+        if result['body']:
+            result['indicators'] = extract_indicators(result['body'])
+        else:
+            logger.warning(f"No body content extracted for {filename}")
 
     except Exception as e:
-        logger.error(f"Error parsing email {filename}: {e}")
+        logger.error(f"Error parsing email {filename}: {e}", exc_info=True)
         raise e
 
     return result
