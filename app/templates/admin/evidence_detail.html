@@ -26,7 +26,7 @@
                         {% if values and values is iterable and values is not string %}
                             <ul>
                             {% for val in values %}
-                                <li>{{ val }}</li>
+                                <li>{{ val | defang }}</li>
                             {% endfor %}
                             </ul>
                         {% else %}

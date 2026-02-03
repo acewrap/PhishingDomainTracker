@@ -93,6 +93,26 @@ def process_email_task(payload):
 
     except Exception as e:
         logger.error(f"Failed to process email: {e}")
+
+        # Try to save error to evidence record
+        try:
+            error_report = {'error': str(e), 'failed_at': datetime.utcnow().isoformat()}
+            # Load existing if possible
+            if evidence.analysis_report:
+                try:
+                    existing = json.loads(evidence.analysis_report)
+                    existing.update(error_report)
+                    error_report = existing
+                except:
+                    pass
+
+            evidence.analysis_report = json.dumps(error_report)
+            if not evidence.body:
+                evidence.body = f"Processing Failed: {str(e)}"
+            db.session.commit()
+        except Exception as db_e:
+            logger.error(f"Failed to save error state: {db_e}")
+
         # If failed, maybe keep file for retry? Or delete?
         # For now, we assume failure requires manual intervention or re-upload.
         raise e

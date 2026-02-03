@@ -23,6 +23,11 @@ from whitenoise import WhiteNoise
 import time
 
 app = Flask(__name__)
+
+# Register custom filters
+from app.email_parser import defang
+app.jinja_env.filters['defang'] = defang
+
 csrf = CSRFProtect(app)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
