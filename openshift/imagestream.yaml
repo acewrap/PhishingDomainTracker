@@ -1,0 +1,20 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: phishing-domain-tracker
+  labels:
+    app: phishing-domain-tracker
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: latest
+      from:
+        kind: DockerImage
+        # Placeholder for your private registry image
+        name: private-registry.example.com/secops/phishing-tracker:latest
+      importPolicy:
+        # Check for updates every 15 minutes (default)
+        scheduled: true
+      referencePolicy:
+        type: Source
