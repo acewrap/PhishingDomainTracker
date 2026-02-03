@@ -66,3 +66,48 @@ flask run-scheduler
 ## Security Notes
 - Ensure `FLASK_ENV` is set to `production` in a live environment to enable secure cookie settings (`Secure` flag).
 - The application uses `ProxyFix` to handle `X-Forwarded-*` headers from Nginx. Ensure your Nginx configuration passes these headers correctly.
+
+## Deployment on OpenShift
+
+This section outlines the steps to deploy the application in a high-security OpenShift environment using the provided manifests.
+
+### 1. Build and Push the Image
+Use the provided `Dockerfile` to build the application image. The Dockerfile is hardened for security (non-root user, minimal footprint).
+
+### 2. Apply Security Manifests
+Apply the ServiceAccount and NetworkPolicy configurations:
+```bash
+oc apply -f openshift/serviceaccount.yaml
+oc apply -f openshift/networkpolicy.yaml
+```
+
+### 3. ImageStream and Builds
+The `openshift/imagestream.yaml` defines an ImageStream that tracks your private registry.
+```bash
+oc apply -f openshift/imagestream.yaml
+```
+
+### 4. Service CA Certificates
+For corporate SSL inspection and private registry support, the application expects the Service CA bundle to be mounted at `/certs/ca-bundle.crt`.
+Ensure your Deployment configures the volume mount:
+
+```yaml
+volumes:
+  - name: service-ca
+    configMap:
+      name: <service-ca-configmap-name>
+      items:
+        - key: service-ca.crt
+          path: ca-bundle.crt
+volumeMounts:
+  - name: service-ca
+    mountPath: /certs
+    readOnly: true
+```
+
+### 5. Image Pull Secrets
+Ensure your ServiceAccount has the necessary credentials to pull from your private registry:
+
+```bash
+oc secrets link phishing-tracker-sa <your-pull-secret-name> --for=pull
+```
