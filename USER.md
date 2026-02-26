@@ -42,3 +42,14 @@ The **Domain Details** page includes an "Infrastructure Correlations" section.
 - **Blue Domain Alerts:** If a domain is found hosting images from your internal (Blue) domains, it will be automatically flagged as **Confirmed Phish** and marked in the domain notes.
 
 ![Correlation Analysis](docs/images/domain_details.png)
+
+## Hold Integrity Integration
+For administrators, a **Sync Hold Integrity** button is available on the main dashboard. This will pull the latest discovery data from your Hold Integrity project.
+- **Source:** Domains imported via this integration will show "Hold Integrity" as their source on the Domain Details page.
+- **Discovery Data:** The raw discovery data (status, timestamp, etc.) is visible on the Domain Details page for inspection.
+
+## Urlscan.io Integration
+When a domain is enriched with Urlscan.io:
+- **Screenshots:** Click the thumbnail on the Domain Details page to view the full screenshot in a popup without leaving the site.
+- **Report Link:** A direct link to the Urlscan.io result page is available in the popup and on the main details card if no screenshot is available.
+- **History:** Historical screenshots are preserved and can be viewed by expanding the history section.

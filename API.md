@@ -85,6 +85,12 @@ Retrieve report information about a submitted email extract.
 }
 ```
 
+### POST /api/v1/sync_hold_integrity
+**Admin Only.** Trigger a manual sync with the Hold Integrity API to import new discovery data.
+
+**Response:**
+- `302 Found`: Redirects to the dashboard with a flash message indicating the result.
+
 ### GET /api/v1/backup
 **Admin Only.** Retrieve a full database backup in JSON format.
 
