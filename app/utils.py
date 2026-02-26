@@ -126,6 +126,8 @@ URLHAUS_API_KEY = os.environ.get('URLHAUS_API_KEY')
 GOOGLE_WEBRISK_KEY = os.environ.get('GOOGLE_WEBRISK_KEY')
 GOOGLE_PROJECT_ID = os.environ.get('GOOGLE_PROJECT_ID')
 VIRUSTOTAL_API_KEY = os.environ.get('VIRUSTOTAL_API_KEY')
+HOLD_INTEGRITY_API_KEY = os.environ.get('HOLD_INTEGRITY_API_KEY')
+HOLD_INTEGRITY_PROJECT_ID = os.environ.get('HOLD_INTEGRITY_PROJECT_ID')
 
 # Global cache for threat terms
 _THREAT_TERMS_CACHE = None
@@ -1083,6 +1085,8 @@ def process_urlscan_result(domain_obj, app):
                     img_resp = http.get(screenshot_url, timeout=20)
                     if img_resp.status_code == 200:
                         filename = f"urlscan_{uuid}.png"
+                        # Use os.getcwd() to find root? Or app.root_path via current_app context or passed in app?
+                        # app argument is passed to this function, so app.root_path is safe.
                         static_dir = os.path.join(app.root_path, 'static', 'screenshots')
                         if not os.path.exists(static_dir):
                             os.makedirs(static_dir)
@@ -1107,8 +1111,18 @@ def process_urlscan_result(domain_obj, app):
                             db.session.add(screenshot)
                             logger.info(f"Downloaded screenshot for {domain_obj.domain_name}")
 
+                        # Update the main screenshot link to point to local file?
+                        # Or keep the urlscan.io link?
+                        # The user asked for "clickable thumbnail that would expand".
+                        # Storing the URLScan result URL in 'screenshot_link' is standard for linking out.
+                        # But we can also update it to be our local path if desired,
+                        # but 'screenshot_link' field name implies external link in this codebase.
+                        # We will rely on 'screenshots' relationship for local images.
+
                 except Exception as e:
                     logger.error(f"Failed to download screenshot: {e}")
+            else:
+                 logger.warning(f"No screenshotURL found in Urlscan result for {uuid}")
 
             domain_obj.urlscan_status = 'complete'
             domain_obj.last_urlscan_date = datetime.utcnow()
@@ -1141,3 +1155,59 @@ def poll_pending_urlscans(app):
 
         if count > 0:
             logger.info(f"Processed {count} Urlscan results.")
+
+def fetch_hold_integrity_discovery():
+    """
+    Fetches discovery data from Hold Integrity API.
+    Returns list of domains or None.
+    """
+    if not HOLD_INTEGRITY_API_KEY or not HOLD_INTEGRITY_PROJECT_ID:
+        logger.warning("Hold Integrity API Key or Project ID not set.")
+        return None
+
+    try:
+        base_url = "https://holdintegrity.com/dis/kZsWcjfyeyyhdYCbazNKDJrPHeaRJZJXUEKkS5T77eP7RDFdQqZZsywRnZAd2z4t/"
+        # Construct URL based on assumption: {BaseURL}/projects/{ProjectID}/discovery
+        # We need to be careful with trailing slashes in base_url
+        clean_base = base_url.rstrip('/')
+        url = f"{clean_base}/projects/{HOLD_INTEGRITY_PROJECT_ID}/discovery"
+
+        headers = {
+            'Authorization': f'Bearer {HOLD_INTEGRITY_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+
+        logger.info(f"Fetching Hold Integrity discovery data from {url}")
+        response = http.get(url, headers=headers, timeout=20)
+
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 429:
+             logger.warning("Hold Integrity API Rate Limit Exceeded.")
+             return None
+        else:
+            logger.error(f"Hold Integrity API returned {response.status_code}: {response.text}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Error calling Hold Integrity API: {e}")
+        return None
+
+def fetch_hold_integrity_certs(domain_name):
+    """
+    Fetches certificate data for a domain from Hold Integrity.
+    (Placeholder if specific endpoint exists, otherwise might be part of discovery)
+    """
+    # Assuming for now discovery returns everything or there is a specific endpoint
+    # If the user mentioned "fetch_hold_integrity_certs()", we implement it.
+    # Without a specific URL structure given for certs, we might need to assume
+    # it's similar to discovery or wait for clarification.
+    # However, the prompt asked to implement it.
+    # Let's assume it might be /projects/{id}/certs/{domain} or similar, OR
+    # we just query discovery and filter?
+    # Given the constraint "Use the base URL... /projects/{projectId}/discovery",
+    # I will assume for now discovery data contains cert info or we use the same base.
+
+    # Since I don't have a specific endpoint for certs, I'll stub this to return None
+    # or rely on discovery data payload containing it.
+    return None

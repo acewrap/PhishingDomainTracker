@@ -3,10 +3,11 @@ from flask_login import login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import db, migrate, bcrypt, login_manager
 from app.models import PhishingDomain, User, EmailEvidence
-from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites, fetch_whois_data
+from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites, fetch_whois_data, fetch_hold_integrity_discovery
 from app.forms import AddDomainForm
 from app.queue_service import add_task
 from app.reporting import generate_evidence_pdf, generate_excel_report
+import requests
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
@@ -198,7 +199,15 @@ def domain_details(id):
                       os.environ.get('URLHAUS_API_KEY') or
                       (os.environ.get('GOOGLE_WEBRISK_KEY') and os.environ.get('GOOGLE_PROJECT_ID')))
 
-    return render_template('domain_detail.html', domain=domain, can_report=can_report, related_sites=related_sites)
+    # Parse Hold Integrity Data if available
+    hold_integrity_info = {}
+    if domain.hold_integrity_data:
+        try:
+             hold_integrity_info = json.loads(domain.hold_integrity_data)
+        except:
+             pass
+
+    return render_template('domain_detail.html', domain=domain, can_report=can_report, related_sites=related_sites, hold_integrity_info=hold_integrity_info)
 
 @app.route('/enrich/<int:id>', methods=['POST'])
 @login_required
@@ -350,6 +359,73 @@ def enrich_domains():
         flash(f'Enrichment triggered for {len(domains)} domains.', 'success')
     else:
         flash('No domains selected for enrichment.', 'warning')
+    return redirect(url_for('index'))
+
+@app.route('/sync_hold_integrity', methods=['POST'])
+@login_required
+def sync_hold_integrity():
+    if not current_user.is_admin:
+        flash('Admin privileges required to sync.', 'danger')
+        return redirect(url_for('index'))
+
+    data = fetch_hold_integrity_discovery()
+    if not data:
+        flash('Failed to fetch data from Hold Integrity or no data returned.', 'warning')
+        return redirect(url_for('index'))
+
+    # Expecting data to be a list of dicts, e.g. [{'domain': 'example.com', ...}, ...]
+    # Adjust based on actual API response structure.
+    # Assuming list of objects.
+
+    added_count = 0
+    updated_count = 0
+
+    # If API returns a wrapper like {"results": [...]}, handle it
+    items = data
+    if isinstance(data, dict) and 'results' in data:
+        items = data['results']
+    elif isinstance(data, dict):
+        # Maybe singular or other format?
+        items = [data]
+
+    if not isinstance(items, list):
+         flash('Unexpected data format from Hold Integrity.', 'danger')
+         return redirect(url_for('index'))
+
+    for item in items:
+        # Extract domain name - flexible key check
+        domain_name = item.get('domain') or item.get('domain_name') or item.get('name')
+        if not domain_name:
+            continue
+
+        domain_name = domain_name.strip()
+
+        existing = PhishingDomain.query.filter_by(domain_name=domain_name).first()
+        if existing:
+            # Update data
+            existing.hold_integrity_data = json.dumps(item)
+
+            # Check for cert changes or alerts if needed
+            # For now just storing data
+            updated_count += 1
+        else:
+            new_domain = PhishingDomain(
+                domain_name=domain_name,
+                source='Hold Integrity',
+                hold_integrity_data=json.dumps(item),
+                manual_status='Yellow' # Default to monitoring
+            )
+            db.session.add(new_domain)
+            added_count += 1
+
+    try:
+        db.session.commit()
+        log_security_event('Hold Integrity Sync', current_user.username, request.remote_addr, 'info', added=added_count, updated=updated_count)
+        flash(f'Hold Integrity Sync: {added_count} added, {updated_count} updated.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error during sync: {e}', 'danger')
+
     return redirect(url_for('index'))
 
 @app.route('/delete_domains', methods=['POST'])
