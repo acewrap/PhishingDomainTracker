@@ -1,5 +1,9 @@
 from flask import render_template
 from weasyprint import HTML
+try:
+    from weasyprint.text.fonts import FontConfiguration
+except ImportError:
+    from weasyprint.fonts import FontConfiguration
 from app.models import EmailEvidence, PhishingDomain
 import json
 import io
@@ -41,7 +45,8 @@ def generate_evidence_pdf(evidence_id):
 
     # Convert to PDF
     pdf_file = io.BytesIO()
-    HTML(string=html_string).write_pdf(pdf_file)
+    font_config = FontConfiguration()
+    HTML(string=html_string).write_pdf(pdf_file, font_config=font_config)
     pdf_file.seek(0)
 
     return pdf_file
@@ -151,6 +156,7 @@ def generate_quarterly_pdf(data):
     )
 
     pdf_file = io.BytesIO()
-    HTML(string=html_string).write_pdf(pdf_file)
+    font_config = FontConfiguration()
+    HTML(string=html_string).write_pdf(pdf_file, font_config=font_config)
     pdf_file.seek(0)
     return pdf_file

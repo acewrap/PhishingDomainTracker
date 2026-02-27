@@ -155,6 +155,14 @@ def get_threat_terms():
              return _THREAT_TERMS_CACHE
         return []
 
+def get_parking_nameservers():
+    from app.models import ParkingNameserver
+    try:
+        return [p.ns.lower() for p in ParkingNameserver.query.all()]
+    except Exception as e:
+        logger.warning(f"Error fetching ParkingNameservers: {e}")
+        return []
+
 # Global cache for blue domains
 _BLUE_DOMAINS_CACHE = None
 _BLUE_DOMAINS_CACHE_TIMESTAMP = 0
@@ -459,12 +467,14 @@ def enrich_domain(domain_obj, user_id=None):
             if 'registrarName' in whois_record:
                     domain_obj.registrar = whois_record.get('registrarName')
 
-            # Update registration status (simplistic check for now)
-            # In reality, might need to parse dates or status codes
-            if whois_record.get('parseCode') == 0:
-                    domain_obj.registration_status = "Registered"
+            # Update registration status
+            status = whois_record.get('status', 'Unknown/Available')
+            if isinstance(status, list) and len(status) > 0:
+                domain_obj.registration_status = status[0]
+            elif isinstance(status, str):
+                domain_obj.registration_status = status
             else:
-                    domain_obj.registration_status = "Unknown/Available"
+                domain_obj.registration_status = "Registered" if whois_record.get('parseCode') == 0 else "Unknown/Available"
 
             # Extract and parse registration date
             created_date_str = whois_record.get('createdDate')
@@ -680,6 +690,31 @@ def enrich_domain(domain_obj, user_id=None):
     ns_records = check_ns_record(domain_obj.domain_name)
     if ns_records:
         domain_obj.ns_records = "\n".join(ns_records)
+
+        # Check against Parking Nameservers
+        parking_nss = get_parking_nameservers()
+        is_parked = False
+        for ns in ns_records:
+            ns_lower = ns.lower()
+            for p_ns in parking_nss:
+                if p_ns in ns_lower:
+                    is_parked = True
+                    break
+            if is_parked:
+                break
+
+        if is_parked and domain_obj.threat_status in ['Yellow', 'Orange']:
+            domain_obj.manual_status = 'Brown'
+            logger.info(f"Domain {domain_obj.domain_name} detected as 'For Sale' via NS record. Moving to Brown.")
+
+            ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            new_note = f"[{ts}] Status changed to Brown (For Sale) based on known parking nameservers."
+            if domain_obj.action_taken:
+                domain_obj.action_taken += f"\n{new_note}"
+            else:
+                domain_obj.action_taken = new_note
+
+            log_security_event('Domain Status Change', user_id, 'system', 'warning', domain_name=domain_obj.domain_name, old_status='Yellow/Orange', new_status='Brown', reason='Parking NS detected')
     else:
         domain_obj.ns_records = None
 

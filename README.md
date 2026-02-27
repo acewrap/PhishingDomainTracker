@@ -55,19 +55,24 @@ For detailed instructions, please refer to the following guides:
 
 ## Automated Lifecycle Monitoring
 
-The application includes a background scheduler (APScheduler) that performs automated checks:
+The application includes a background scheduler (APScheduler) that performs automated checks on a configurable schedule:
 
-*   **Purple (6 Hours)**: Checks 'Takedown Requested' domains. If 404 or content removed, moves to Grey.
-*   **Red (24 Hours)**: Checks Active/Login domains. If unreachable, moves to Grey. Updates IP.
-*   **Orange (24 Hours)**: Checks MX records. Logs modifications.
-*   **Yellow (Weekly)**: Checks Parked/Monitored domains. If 200 OK or content (Login/Threat Terms) detected, moves to Red.
-*   **Grey (Monthly)**: Checks Remediated domains. If back to life, moves to Red.
+*   **Purple**: Checks 'Takedown Requested' domains. If 404 or content removed, moves to Grey.
+*   **Red**: Checks Active/Login domains. If unreachable, moves to Grey. Updates IP.
+*   **Orange**: Checks MX records. Logs modifications.
+*   **Yellow**: Checks Parked/Monitored domains. If 200 OK or content (Login/Threat Terms) detected, moves to Red.
+*   **Brown**: Checks Parked/For Sale domains. Detects Whois changes and parking nameservers to elevate threat levels.
+*   **Grey**: Checks Remediated domains. If back to life, moves to Red.
+
+*Note: The interval for each of these checks can be fully customized by administrators using the **Schedule Editor**.*
 
 Logs are written to `logs/syslog.log` in a Syslog-compatible KV format, rotated daily.
 
-## Threat Terms Management
+## Threat Terms & Parking Nameservers Management
 
 Admins can manage a list of "Threat Terms" via the Admin menu. These terms are used during scanning (Yellow/Grey checks and initial enrichment) to detect potential phishing content.
+
+Admins can also manage a list of "Parking Nameservers" (e.g. `sedoparking.com`, `dccdns.com`). If a domain uses one of these nameservers, it is automatically categorized as **Brown** (For Sale).
 
 ## Infrastructure Correlation
 

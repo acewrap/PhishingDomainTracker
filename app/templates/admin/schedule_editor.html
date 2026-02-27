@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h2>Schedule Editor</h2>
+        <p>Set the time frames (in minutes) for the automated background refreshing of domains by category.</p>
+
+        <form method="POST" action="{{ url_for('admin.schedule_editor') }}" class="mt-4">
+            {{ form.hidden_tag() }}
+
+            <div class="card mb-3 border-purple">
+                <div class="card-body">
+                    <h5 class="card-title text-purple">Purple (Takedown Requested)</h5>
+                    <div class="mb-3">
+                        {{ form.purple_mins.label(class="form-label") }}
+                        {{ form.purple_mins(class="form-control", type="number", min="1") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3 border-danger">
+                <div class="card-body">
+                    <h5 class="card-title text-danger">Red (Active/Login)</h5>
+                    <div class="mb-3">
+                        {{ form.red_mins.label(class="form-label") }}
+                        {{ form.red_mins(class="form-control", type="number", min="1") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3 border-warning">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">Orange (MX Record)</h5>
+                    <div class="mb-3">
+                        {{ form.orange_mins.label(class="form-label") }}
+                        {{ form.orange_mins(class="form-control", type="number", min="1") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3" style="border-color: #ffc107;">
+                <div class="card-body">
+                    <h5 class="card-title" style="color: #ffc107;">Yellow (Monitoring)</h5>
+                    <div class="mb-3">
+                        {{ form.yellow_mins.label(class="form-label") }}
+                        {{ form.yellow_mins(class="form-control", type="number", min="1") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3" style="border-color: #a52a2a;">
+                <div class="card-body">
+                    <h5 class="card-title" style="color: #a52a2a;">Brown (For Sale)</h5>
+                    <div class="mb-3">
+                        {{ form.brown_mins.label(class="form-label") }}
+                        {{ form.brown_mins(class="form-control", type="number", min="1") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3 border-secondary">
+                <div class="card-body">
+                    <h5 class="card-title text-secondary">Grey (Remediated)</h5>
+                    <div class="mb-3">
+                        {{ form.grey_mins.label(class="form-label") }}
+                        {{ form.grey_mins(class="form-control", type="number", min="1") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 mb-5">
+                {{ form.submit(class="btn btn-primary btn-lg") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

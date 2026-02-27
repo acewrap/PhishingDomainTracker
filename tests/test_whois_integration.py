@@ -32,7 +32,8 @@ class TestWhoisIntegration(unittest.TestCase):
             'WhoisRecord': {
                 'createdDate': '2000-01-01T12:00:00Z',
                 'registrarName': 'Example Registrar, LLC',
-                'parseCode': 0
+                'parseCode': 0,
+                'status': 'Registered'
             }
         }
 

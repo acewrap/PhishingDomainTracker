@@ -46,6 +46,7 @@
         </div>
     </div>
 
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" name="export_format" value="csv" class="btn btn-primary">Generate CSV Report</button>
     <button type="submit" name="export_format" value="excel" class="btn btn-success">Generate Excel Report</button>
 </form>

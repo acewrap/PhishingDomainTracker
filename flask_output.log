@@ -1,0 +1,37 @@
+ * Serving Flask app 'app.app'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.0.2:8080
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:29:20] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<12>1 2026-02-27T22:29:21Z devbox PhishingDomainTracker 6934 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Password Failure", "timestamp_utc": "2026-02-27T22:29:21Z", "reason": "Unknown user"}
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:29:21] "POST /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:29:21] "[32mGET /admin/parking-nameservers HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:29:21] "GET /login?next=/admin/parking-nameservers HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:29:26] "[32mGET /admin/schedule-editor HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:29:26] "GET /login?next=/admin/schedule-editor HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:29:31] "[33mGET /add-domain HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:30:20] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<12>1 2026-02-27T22:30:20Z devbox PhishingDomainTracker 6934 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Password Failure", "timestamp_utc": "2026-02-27T22:30:20Z", "reason": "Unknown user"}
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:30:20] "POST /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:30:20] "[32mGET /admin/parking-nameservers HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:30:20] "GET /login?next=/admin/parking-nameservers HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:31:42] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-02-27T22:31:43Z devbox PhishingDomainTracker 6934 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-02-27T22:31:43Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiOTNhZWRjYmU4ODE4ODAwMjJhNWNhMmMwM2YyMzNmMjRlOWMyM2YyYyJ9.aaIbTg.wadXVurJf1CbHbfHFs4CJTEiG8o"}
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:31:43] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:31:43] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:31:43] "GET /admin/parking-nameservers HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:32:11] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-02-27T22:32:11Z devbox PhishingDomainTracker 6934 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-02-27T22:32:11Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiNjRiZTI4Mjc3MmRlN2M3MjM4OWU4MDQ2MjcwMmUzZDE4ZTk0MzhkMyJ9.aaIbaw.2CqdF6Ihjg7R6eis8rkF7mE9lkc"}
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:32:11] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:32:11] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:32:11] "GET /admin/parking-nameservers HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:32:12] "GET /admin/schedule-editor HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:32:12] "[33mGET /add-domain HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:33:20] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-02-27T22:33:20Z devbox PhishingDomainTracker 6934 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-02-27T22:33:20Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiZjc1ZWU2MDZiZGVjN2FmMjc3MThlZjYwMTI2NDQyMDEzNTQ1MDIyMSJ9.aaIbsA.7Xn7aJFN2FszZkM0xii9D4unlfs"}
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:33:20] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:33:21] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [27/Feb/2026 22:33:21] "GET /domain/1 HTTP/1.1" 200 -

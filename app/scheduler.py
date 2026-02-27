@@ -38,22 +38,60 @@ def append_action_note(domain, note):
         domain.action_taken = new_note
 
 def init_scheduler(app):
+    from app.models import ScheduleConfig
     # Prevent adding jobs twice if reloader is active (though normally handled by run_simple(use_reloader=False) or check)
     if not scheduler.running:
-        scheduler.add_job(check_purple_domains, 'interval', hours=6, args=[app])
-        scheduler.add_job(check_red_domains, 'interval', hours=24, args=[app])
-        scheduler.add_job(check_orange_domains, 'interval', hours=24, args=[app])
-        scheduler.add_job(check_yellow_domains, 'interval', weeks=1, args=[app])
-        scheduler.add_job(check_brown_domains, 'interval', weeks=1, args=[app])
-        scheduler.add_job(check_grey_domains, 'interval', weeks=4, args=[app])
+        with app.app_context():
+            # Default intervals in minutes
+            defaults = {
+                'Purple': 6 * 60,
+                'Red': 24 * 60,
+                'Orange': 24 * 60,
+                'Yellow': 7 * 24 * 60,
+                'Brown': 7 * 24 * 60,
+                'Grey': 4 * 7 * 24 * 60
+            }
+            # Populate defaults if they don't exist
+            for category, default_mins in defaults.items():
+                if not ScheduleConfig.query.filter_by(category=category).first():
+                    db.session.add(ScheduleConfig(category=category, interval_minutes=default_mins))
+            db.session.commit()
+
+            # Fetch actual configuration
+            configs = {c.category: c.interval_minutes for c in ScheduleConfig.query.all()}
+
+        scheduler.add_job(check_purple_domains, 'interval', minutes=configs.get('Purple', 360), args=[app], id='purple_job', replace_existing=True)
+        scheduler.add_job(check_red_domains, 'interval', minutes=configs.get('Red', 1440), args=[app], id='red_job', replace_existing=True)
+        scheduler.add_job(check_orange_domains, 'interval', minutes=configs.get('Orange', 1440), args=[app], id='orange_job', replace_existing=True)
+        scheduler.add_job(check_yellow_domains, 'interval', minutes=configs.get('Yellow', 10080), args=[app], id='yellow_job', replace_existing=True)
+        scheduler.add_job(check_brown_domains, 'interval', minutes=configs.get('Brown', 10080), args=[app], id='brown_job', replace_existing=True)
+        scheduler.add_job(check_grey_domains, 'interval', minutes=configs.get('Grey', 40320), args=[app], id='grey_job', replace_existing=True)
+
+        # Fixed interval jobs
         # Poll Urlscan
         scheduler.add_job(poll_pending_urlscans, 'interval', minutes=2, args=[app])
         # Process Tasks (Email Ingestion, etc.) - Run frequently
         scheduler.add_job(process_pending_tasks, 'interval', seconds=5, args=[app])
         # Daily correlation refresh
         scheduler.add_job(trigger_correlation_refresh, 'interval', days=1, args=[app])
+
         scheduler.start()
         logger.info("Scheduler started.")
+
+def update_scheduler_jobs(app):
+    """Dynamically updates the APScheduler jobs when config changes."""
+    from app.models import ScheduleConfig
+    if scheduler.running:
+        with app.app_context():
+            configs = {c.category: c.interval_minutes for c in ScheduleConfig.query.all()}
+
+        scheduler.reschedule_job('purple_job', trigger='interval', minutes=configs.get('Purple', 360))
+        scheduler.reschedule_job('red_job', trigger='interval', minutes=configs.get('Red', 1440))
+        scheduler.reschedule_job('orange_job', trigger='interval', minutes=configs.get('Orange', 1440))
+        scheduler.reschedule_job('yellow_job', trigger='interval', minutes=configs.get('Yellow', 10080))
+        scheduler.reschedule_job('brown_job', trigger='interval', minutes=configs.get('Brown', 10080))
+        scheduler.reschedule_job('grey_job', trigger='interval', minutes=configs.get('Grey', 40320))
+        logger.info("Scheduler jobs updated with new intervals.")
 
 def trigger_correlation_refresh(app):
     with app.app_context():
