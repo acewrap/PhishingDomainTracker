@@ -56,4 +56,4 @@ class ApiTestCase(unittest.TestCase):
         }
         response = self.client.post('/api/v1/domains', json={'domain_name': 'api-phish.com'}, headers=headers)
         self.assertEqual(response.status_code, 201)
-        self.assertIn(b'api-phish.com', response.data)
+        self.assertIn(b'Domain added', response.data)

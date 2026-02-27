@@ -190,7 +190,14 @@ def add_domain():
 @app.route('/domain/<int:id>')
 @login_required
 def domain_details(id):
+    from app.utils import process_urlscan_result
+    from flask import current_app
     domain = PhishingDomain.query.get_or_404(id)
+
+    # Process urlscan result if it's pending so we have latest screenshot
+    if domain.urlscan_uuid and domain.urlscan_status in ['new', 'pending']:
+        if process_urlscan_result(domain, current_app._get_current_object()):
+            db.session.commit()
 
     # Infrastructure Correlations
     related_sites = find_related_sites(id)

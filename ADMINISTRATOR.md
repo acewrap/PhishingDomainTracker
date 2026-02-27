@@ -49,6 +49,15 @@ Navigate to **Admin > Evidence Storage** to view all submitted emails.
 
 These terms are used by the automated scheduler and enrichment process to scan domain content. If a match is found on a non-allowlisted domain, it may be flagged as 'Red'.
 
+## Parking Nameservers Management
+1. Navigate to **Admin > Parking Nameservers**.
+2. **Add Nameserver:** Enter a known parking nameserver (e.g., "dccdns.com", "sedoparking.com").
+3. **Delete Nameserver:** Remove obsolete terms.
+
+![Parking Nameservers](docs/images/parking_nameservers.png)
+
+These nameservers are checked against the domain's NS records during enrichment. If a match is found, the domain is automatically categorized as **Brown** (For Sale).
+
 ## Automated Scheduler & Background Worker
 The system runs background tasks for domain checks and email processing.
 To run the background worker for email processing and reports:
@@ -56,6 +65,13 @@ To run the background worker for email processing and reports:
 flask run-worker
 ```
 The scheduler handles periodic domain checks and a daily **Correlation Refresh**.
+
+### Schedule Editor
+1. Navigate to **Admin > Schedule Editor**.
+2. Set custom refresh intervals (in minutes) for domains based on their threat category (Purple, Red, Orange, Yellow, Brown, Grey).
+3. Changes apply immediately to the running scheduler.
+
+![Schedule Editor](docs/images/schedule_editor.png)
 
 Logs are stored in `logs/syslog.log` relative to the application root.
 

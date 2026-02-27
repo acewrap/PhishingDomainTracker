@@ -21,3 +21,18 @@ class RestoreForm(FlaskForm):
 class ThreatTermForm(FlaskForm):
     term = StringField('Threat Term', validators=[DataRequired()])
     submit = SubmitField('Add Term')
+
+class ParkingNameserverForm(FlaskForm):
+    ns = StringField('Parking Nameserver', validators=[DataRequired()])
+    submit = SubmitField('Add Nameserver')
+
+from wtforms import IntegerField
+
+class ScheduleConfigForm(FlaskForm):
+    purple_mins = IntegerField('Purple (Takedown Requested) Interval (minutes)', validators=[DataRequired()])
+    red_mins = IntegerField('Red (Active/Login) Interval (minutes)', validators=[DataRequired()])
+    orange_mins = IntegerField('Orange (MX Record) Interval (minutes)', validators=[DataRequired()])
+    yellow_mins = IntegerField('Yellow (Monitoring) Interval (minutes)', validators=[DataRequired()])
+    brown_mins = IntegerField('Brown (For Sale) Interval (minutes)', validators=[DataRequired()])
+    grey_mins = IntegerField('Grey (Remediated) Interval (minutes)', validators=[DataRequired()])
+    submit = SubmitField('Update Schedule')

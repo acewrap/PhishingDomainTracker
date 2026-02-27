@@ -6,10 +6,12 @@ from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required, current_user
 from app.admin import admin_bp
-from app.models import User, APIKey, PhishingDomain, ThreatTerm, EmailEvidence, EvidenceCorrelation
+from app.models import User, APIKey, PhishingDomain, ThreatTerm, ParkingNameserver, EmailEvidence, EvidenceCorrelation, ScheduleConfig
 from app.extensions import db, bcrypt
 from app.utils import admin_required, log_security_event, enrich_domain
-from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm
+from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm, ParkingNameserverForm, ScheduleConfigForm
+from app.scheduler import update_scheduler_jobs
+from flask import current_app
 from app.backup_service import generate_backup_data, perform_restore
 from app.queue_service import add_task
 
@@ -84,6 +86,51 @@ def delete_threat_term(id):
     db.session.commit()
     flash(f'Term "{term.term}" deleted.', 'success')
     return redirect(url_for('admin.threat_terms'))
+
+@admin_bp.route('/parking-nameservers', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def parking_nameservers():
+    form = ParkingNameserverForm()
+    if form.validate_on_submit():
+        ns = form.ns.data.strip()
+        if ns:
+            if not ParkingNameserver.query.filter_by(ns=ns).first():
+                try:
+                    new_ns = ParkingNameserver(ns=ns)
+                    db.session.add(new_ns)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'Error adding nameserver: {e}', 'danger')
+                    return redirect(url_for('admin.parking_nameservers'))
+
+                log_security_event(
+                    'Parking Nameserver Added',
+                    current_user.username,
+                    request.remote_addr,
+                    'info',
+                    nameserver=ns,
+                    category='configuration'
+                )
+
+                flash(f'Nameserver "{ns}" added.', 'success')
+            else:
+                flash(f'Nameserver "{ns}" already exists.', 'warning')
+        return redirect(url_for('admin.parking_nameservers'))
+
+    nss = ParkingNameserver.query.all()
+    return render_template('admin/parking_nameservers.html', form=form, nss=nss)
+
+@admin_bp.route('/parking-nameservers/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_parking_nameserver(id):
+    p_ns = ParkingNameserver.query.get_or_404(id)
+    db.session.delete(p_ns)
+    db.session.commit()
+    flash(f'Nameserver "{p_ns.ns}" deleted.', 'success')
+    return redirect(url_for('admin.parking_nameservers'))
 
 @admin_bp.route('/evidence')
 @login_required
@@ -277,3 +324,46 @@ def import_csv():
             flash(f'Database error during import: {e}', 'danger')
 
     return render_template('admin/import_csv.html', form=form)
+
+@admin_bp.route('/schedule-editor', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def schedule_editor():
+    form = ScheduleConfigForm()
+
+    if form.validate_on_submit():
+        configs = {
+            'Purple': form.purple_mins.data,
+            'Red': form.red_mins.data,
+            'Orange': form.orange_mins.data,
+            'Yellow': form.yellow_mins.data,
+            'Brown': form.brown_mins.data,
+            'Grey': form.grey_mins.data
+        }
+
+        for cat, mins in configs.items():
+            conf = ScheduleConfig.query.filter_by(category=cat).first()
+            if conf:
+                conf.interval_minutes = mins
+            else:
+                db.session.add(ScheduleConfig(category=cat, interval_minutes=mins))
+
+        db.session.commit()
+
+        # Trigger update of running scheduler
+        update_scheduler_jobs(current_app)
+
+        log_security_event('Schedule Updated', current_user.username, request.remote_addr, 'info', configs=configs)
+        flash('Schedule intervals updated successfully.', 'success')
+        return redirect(url_for('admin.schedule_editor'))
+
+    elif request.method == 'GET':
+        for conf in ScheduleConfig.query.all():
+            if conf.category == 'Purple': form.purple_mins.data = conf.interval_minutes
+            elif conf.category == 'Red': form.red_mins.data = conf.interval_minutes
+            elif conf.category == 'Orange': form.orange_mins.data = conf.interval_minutes
+            elif conf.category == 'Yellow': form.yellow_mins.data = conf.interval_minutes
+            elif conf.category == 'Brown': form.brown_mins.data = conf.interval_minutes
+            elif conf.category == 'Grey': form.grey_mins.data = conf.interval_minutes
+
+    return render_template('admin/schedule_editor.html', form=form)

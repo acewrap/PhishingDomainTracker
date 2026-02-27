@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Parking Nameservers Management</h2>
+        <p>Manage nameservers that trigger automatic categorization to 'Brown' (For Sale/Parked).</p>
+
+        <div class="card mb-4">
+            <div class="card-header">Add New Nameserver</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.parking_nameservers') }}">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.ns.label(class="form-label") }}
+                        {{ form.ns(class="form-control", placeholder="e.g. sedoparking.com") }}
+                    </div>
+                    {{ form.submit(class="btn btn-primary") }}
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Existing Nameservers</div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Nameserver</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ns in nss %}
+                        <tr>
+                            <td>{{ ns.ns }}</td>
+                            <td>
+                                <form action="{{ url_for('admin.delete_parking_nameserver', id=ns.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

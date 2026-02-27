@@ -102,6 +102,13 @@ class ThreatTerm(db.Model):
     def __repr__(self):
         return f'<ThreatTerm {self.term}>'
 
+class ParkingNameserver(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ns = db.Column(db.String(255), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'<ParkingNameserver {self.ns}>'
+
 class EmailEvidence(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(255), nullable=True)
@@ -156,3 +163,11 @@ class Task(db.Model):
 
     def __repr__(self):
         return f'<Task {self.id} {self.task_type} {self.status}>'
+
+class ScheduleConfig(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(50), unique=True, nullable=False)
+    interval_minutes = db.Column(db.Integer, nullable=False)
+
+    def __repr__(self):
+        return f'<ScheduleConfig {self.category} -> {self.interval_minutes}m>'
