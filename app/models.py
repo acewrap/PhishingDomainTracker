@@ -56,6 +56,11 @@ class PhishingDomain(db.Model):
     geolocation_iso = db.Column(db.String(10), nullable=True)
     geolocation_country = db.Column(db.String(100), nullable=True)
 
+    # Shodan Enrichment
+    shodan_isp = db.Column(db.String(255), nullable=True)
+    shodan_open_ports = db.Column(db.Text, nullable=True)  # Stored as JSON string
+    shodan_cves = db.Column(db.Text, nullable=True)  # Stored as JSON string
+
     # Hold Integrity
     source = db.Column(db.String(50), nullable=True)  # e.g., 'Manual', 'Hold Integrity'
     hold_integrity_data = db.Column(db.Text, nullable=True) # JSON blob for discovery/certs

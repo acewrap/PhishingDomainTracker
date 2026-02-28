@@ -9,10 +9,18 @@
         <div class="card mb-4">
             <div class="card-header">
                 Details
-                <form action="{{ url_for('enrich_domain_route', id=domain.id) }}" method="POST" class="float-end">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit" class="btn btn-sm btn-outline-primary">Enrich / Refresh</button>
-                </form>
+                <div class="float-end d-flex gap-2">
+                    <form action="{{ url_for('enrich_domain_route', id=domain.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Enrich / Refresh</button>
+                    </form>
+                    {% if shodan_enabled %}
+                    <form action="{{ url_for('enrich_domain_shodan_route', id=domain.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-sm btn-outline-info" title="Manually enrich via Shodan">Trigger Shodan Enrichment</button>
+                    </form>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -54,6 +62,56 @@
 
                         {# Generic display of available keys #}
                         <pre>{{ hold_integrity_info | tojson(indent=2) }}</pre>
+                     </div>
+                </div>
+                {% endif %}
+
+                {% if shodan_enabled %}
+                <hr>
+                <h5>Infrastructure Intelligence</h5>
+                <div class="row">
+                     <div class="col-md-6">
+                         <p><strong>ASN:</strong> {{ domain.asn_number or 'Unknown' }} ({{ domain.asn_org or 'Unknown' }})</p>
+                         <p><strong>Shodan ISP:</strong>
+                             {% if domain.shodan_isp %}
+                                 {{ domain.shodan_isp }}
+                                 {% if domain.asn_org and domain.shodan_isp.lower() != domain.asn_org.lower() %}
+                                     <span class="text-warning ms-1" title="Differs from ASN Org"><i class="fas fa-exclamation-triangle"></i></span>
+                                 {% endif %}
+                             {% else %}
+                                 Unknown
+                             {% endif %}
+                         </p>
+                         {% if domain.favicon_mmh3 %}
+                             <p><strong>Favicon Hash:</strong> {{ domain.favicon_mmh3 }}
+                             <a href="https://www.shodan.io/search?query=http.favicon.hash:{{ domain.favicon_mmh3 }}" target="_blank" class="ms-2 btn btn-xs btn-outline-secondary">Pivot to Shodan <i class="fas fa-external-link-alt"></i></a></p>
+                         {% endif %}
+                     </div>
+                     <div class="col-md-6">
+                         <p><strong>Open Ports:</strong></p>
+                         {% if shodan_open_ports %}
+                             <ul class="list-unstyled">
+                                 {% for port_info in shodan_open_ports %}
+                                     <li><span class="badge bg-secondary">{{ port_info.port }}</span> - {{ port_info.service }}</li>
+                                 {% endfor %}
+                             </ul>
+                         {% else %}
+                             <p class="text-muted">No open ports recorded</p>
+                         {% endif %}
+
+                         <p><strong>CVEs:</strong></p>
+                         {% if shodan_cves %}
+                             <ul class="list-unstyled">
+                                 {% for cve_info in shodan_cves %}
+                                     <li>
+                                         <a href="https://nvd.nist.gov/vuln/detail/{{ cve_info.cve }}" target="_blank" class="badge bg-danger text-decoration-none">{{ cve_info.cve }}</a>
+                                         <small class="text-muted">{{ cve_info.description }}</small>
+                                     </li>
+                                 {% endfor %}
+                             </ul>
+                         {% else %}
+                             <p class="text-muted">No CVEs recorded</p>
+                         {% endif %}
                      </div>
                 </div>
                 {% endif %}

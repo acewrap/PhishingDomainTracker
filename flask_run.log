@@ -1,0 +1,11 @@
+ * Serving Flask app 'app.app'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 12:36:05] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 12:37:18] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-02-28T12:37:19Z devbox PhishingDomainTracker 3929 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-02-28T12:37:19Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiNmFlNmI2ZTc2MThlOTczNWQ3OGUwOTA3ZWMxN2E0NWVjMGY0YTExNyJ9.aaLhfg.UIqSAdNXS-1HajsmXbEBSnoui_I"}
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 12:37:19] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 12:37:19] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 12:37:19] "GET /domain/1 HTTP/1.1" 200 -

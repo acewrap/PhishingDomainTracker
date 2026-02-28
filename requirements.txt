@@ -19,3 +19,4 @@ whitenoise
 extract-msg
 weasyprint
 openpyxl
+shodan

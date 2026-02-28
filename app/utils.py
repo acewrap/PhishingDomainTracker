@@ -128,6 +128,7 @@ GOOGLE_PROJECT_ID = os.environ.get('GOOGLE_PROJECT_ID')
 VIRUSTOTAL_API_KEY = os.environ.get('VIRUSTOTAL_API_KEY')
 HOLD_INTEGRITY_API_KEY = os.environ.get('HOLD_INTEGRITY_API_KEY')
 HOLD_INTEGRITY_PROJECT_ID = os.environ.get('HOLD_INTEGRITY_PROJECT_ID')
+SHODAN_API_KEY = os.environ.get('SHODAN_API_KEY')
 
 # Global cache for threat terms
 _THREAT_TERMS_CACHE = None
@@ -432,6 +433,105 @@ def fetch_and_check_domain(domain_name):
             continue
 
     return None
+
+def enrich_with_shodan(domain_obj, user_id=None):
+    """
+    Manually enriches the domain object with data from Shodan.
+    Updates the domain_obj in place.
+
+    :param domain_obj: PhishingDomain object to enrich
+    :param user_id: Optional username/ID of the caller.
+    """
+    if not SHODAN_API_KEY:
+        logger.warning("SHODAN_API_KEY not set. Skipping Shodan enrichment.")
+        return False
+
+    import shodan
+
+    if not user_id:
+        user_id = 'automated'
+        try:
+            if current_user and current_user.is_authenticated:
+                user_id = current_user.username
+        except:
+            pass
+
+    log_security_event('External API Call', user_id, 'system', 'info', domain_name=domain_obj.domain_name, service='Shodan', api_key_name='SHODAN_API_KEY')
+
+    # Resolve IP if missing
+    if not domain_obj.ip_address:
+        try:
+            domain_obj.ip_address = socket.gethostbyname(domain_obj.domain_name)
+        except Exception as e:
+            logger.warning(f"Could not resolve IP for {domain_obj.domain_name} for Shodan enrichment: {e}")
+            return False
+
+    api = shodan.Shodan(SHODAN_API_KEY)
+
+    try:
+        # Fetch host info using timeout
+        # Shodan client doesn't natively expose timeout well, but uses requests under the hood.
+        # By default, api.host() may block. We can set the socket default timeout or use api._request override if needed,
+        # but the python-shodan library allows us to just call api.host() which usually is fast.
+        # To be safe, we temporarily set socket timeout.
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(10.0)
+        host = api.host(domain_obj.ip_address)
+        socket.setdefaulttimeout(old_timeout)
+
+        # 1. ISP
+        isp = host.get('isp')
+        if isp:
+            domain_obj.shodan_isp = isp
+            if domain_obj.asn_org and isp.lower() != domain_obj.asn_org.lower():
+                 logger.info(f"Shodan ISP ({isp}) differs from ASN Org ({domain_obj.asn_org}) for {domain_obj.domain_name}")
+
+        # 2. Open Ports
+        open_ports = []
+        data = host.get('data', [])
+        for item in data:
+            port = item.get('port')
+            service = item.get('module') or item.get('_shodan', {}).get('module') or 'Unknown'
+            if port:
+                open_ports.append({'port': port, 'service': service})
+
+        if open_ports:
+            domain_obj.shodan_open_ports = json.dumps(open_ports)
+        else:
+            domain_obj.shodan_open_ports = json.dumps([])
+
+        # 3. CVEs
+        cves = []
+        vulns = host.get('vulns', [])
+        for vuln_id in vulns:
+            # Usually 'vulns' is just a list of CVE IDs or dict depending on API plan.
+            # Shodan host details typically returns a dictionary for 'vulns' if the plan allows or a list.
+            # Assuming list of CVE strings or dict mapping CVE to details
+            desc = "No description available"
+            # If it's a dict, sometimes it has details. Shodan Enterprise might return full info, but standard usually just keys.
+            cves.append({'cve': vuln_id, 'description': desc})
+
+        if cves:
+            domain_obj.shodan_cves = json.dumps(cves)
+        else:
+            domain_obj.shodan_cves = json.dumps([])
+
+        logger.info(f"Shodan enrichment successful for {domain_obj.domain_name}")
+        return True
+
+    except shodan.APIError as e:
+        socket.setdefaulttimeout(old_timeout) if 'old_timeout' in locals() else None
+        error_msg = str(e)
+        logger.error(f"Shodan API Error for {domain_obj.domain_name}: {error_msg}")
+        if '429' in error_msg or 'rate limit' in error_msg.lower():
+            logger.warning("Shodan Rate Limit Exceeded.")
+        elif '403' in error_msg or 'access denied' in error_msg.lower() or 'invalid api key' in error_msg.lower():
+            logger.warning("Shodan API Key Invalid or Forbidden.")
+        return False
+    except Exception as e:
+        socket.setdefaulttimeout(old_timeout) if 'old_timeout' in locals() else None
+        logger.error(f"Unexpected error during Shodan enrichment for {domain_obj.domain_name}: {e}")
+        return False
 
 def enrich_domain(domain_obj, user_id=None):
     """
