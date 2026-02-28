@@ -147,6 +147,7 @@ def perform_restore(data):
 
         # 1. Restore Users
         user_map = {} # username -> new_id
+        users_added = []
         for u_data in data['users']:
             user = User(
                 username=u_data['username'],
@@ -157,7 +158,10 @@ def perform_restore(data):
                 is_admin=u_data['is_admin']
             )
             db.session.add(user)
-            db.session.flush() # Generate ID
+            users_added.append(user)
+
+        db.session.flush() # Batch flush for Users
+        for user in users_added:
             user_map[user.username] = user.id
 
         # 2. Restore API Keys
@@ -175,6 +179,7 @@ def perform_restore(data):
 
         # 3. Restore Domains
         domain_map = {} # domain_name -> new_id
+        domains_added = []
         for d_data in data['domains']:
             domain = PhishingDomain(
                 domain_name=d_data['domain_name'],
@@ -199,7 +204,10 @@ def perform_restore(data):
                 html_artifacts=d_data.get('html_artifacts')
             )
             db.session.add(domain)
-            db.session.flush()
+            domains_added.append(domain)
+
+        db.session.flush() # Batch flush for Domains
+        for domain in domains_added:
             domain_map[domain.domain_name] = domain.id
 
         # 4. Restore Threat Terms
@@ -210,6 +218,7 @@ def perform_restore(data):
 
         # 5. Restore Email Evidence
         evidence_id_map = {} # old_id -> new_id
+        evidence_added = []
         if 'email_evidence' in data:
             for e_data in data['email_evidence']:
                 user_id = user_map.get(e_data.get('submitted_by_username'))
@@ -223,8 +232,11 @@ def perform_restore(data):
                     submitted_at=datetime.fromisoformat(e_data['submitted_at']) if e_data.get('submitted_at') else None
                 )
                 db.session.add(ev)
-                db.session.flush()
-                evidence_id_map[e_data.get('id')] = ev.id
+                evidence_added.append((e_data.get('id'), ev))
+
+            db.session.flush() # Batch flush for Email Evidence
+            for old_id, ev in evidence_added:
+                evidence_id_map[old_id] = ev.id
 
         # 6. Restore Evidence Correlations
         if 'evidence_correlations' in data:
