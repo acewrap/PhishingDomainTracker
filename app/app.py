@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import db, migrate, bcrypt, login_manager
 from app.models import PhishingDomain, User, EmailEvidence
-from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites, fetch_whois_data, fetch_hold_integrity_discovery
+from app.utils import enrich_domain, report_to_vendors, log_security_event, find_related_sites, fetch_whois_data, fetch_hold_integrity_discovery, enrich_with_shodan, SHODAN_API_KEY
 from app.forms import AddDomainForm
 from app.queue_service import add_task
 from app.reporting import generate_evidence_pdf, generate_excel_report
@@ -214,7 +214,48 @@ def domain_details(id):
         except:
              pass
 
-    return render_template('domain_detail.html', domain=domain, can_report=can_report, related_sites=related_sites, hold_integrity_info=hold_integrity_info)
+    # Parse Shodan data
+    shodan_open_ports = []
+    shodan_cves = []
+    if domain.shodan_open_ports:
+        try:
+            shodan_open_ports = json.loads(domain.shodan_open_ports)
+        except:
+            pass
+    if domain.shodan_cves:
+        try:
+            shodan_cves = json.loads(domain.shodan_cves)
+        except:
+            pass
+
+    return render_template('domain_detail.html',
+                           domain=domain,
+                           can_report=can_report,
+                           related_sites=related_sites,
+                           hold_integrity_info=hold_integrity_info,
+                           shodan_enabled=bool(SHODAN_API_KEY),
+                           shodan_open_ports=shodan_open_ports,
+                           shodan_cves=shodan_cves)
+
+@app.route('/domain/<int:id>/enrich_shodan', methods=['POST'])
+@login_required
+def enrich_domain_shodan_route(id):
+    if not SHODAN_API_KEY:
+        flash('Shodan API Key is not configured.', 'danger')
+        return redirect(url_for('domain_details', id=id))
+
+    domain = PhishingDomain.query.get_or_404(id)
+    success = enrich_with_shodan(domain, user_id=current_user.username)
+
+    if success:
+        db.session.commit()
+        log_security_event('Shodan Enrichment Triggered', current_user.username, request.remote_addr, 'info', domain_name=domain.domain_name)
+        flash(f'Shodan enrichment successful for {domain.domain_name}', 'success')
+    else:
+        db.session.rollback()
+        flash(f'Shodan enrichment failed for {domain.domain_name}. See logs for details.', 'danger')
+
+    return redirect(url_for('domain_details', id=domain.id))
 
 @app.route('/enrich/<int:id>', methods=['POST'])
 @login_required
