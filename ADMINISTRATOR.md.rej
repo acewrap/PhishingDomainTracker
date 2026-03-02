@@ -1,0 +1,12 @@
+diff a/ADMINISTRATOR.md b/ADMINISTRATOR.md	(rejected hunks)
+@@ -88,3 +88,10 @@ The system includes an advanced correlation engine that analyzes domains for sha
+ ## Configuration
+ Set the following environment variable to enable VirusTotal integration:
+ - `VIRUSTOTAL_API_KEY`: Your VirusTotal API Key.
++
++### Hold Integrity Integration
++To enable the **Sync Hold Integrity** button and integration features, you must set the following environment variables:
++- `HOLD_INTEGRITY_API_KEY`: The JWT Bearer token.
++- `HOLD_INTEGRITY_PROJECT_ID`: The Project ID (e.g., `RecentPhishingDomains`).
++
++If these variables are missing, the UI components will be hidden.

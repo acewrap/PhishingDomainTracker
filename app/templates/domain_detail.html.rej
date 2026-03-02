@@ -1,0 +1,101 @@
+diff a/app/templates/domain_detail.html b/app/templates/domain_detail.html	(rejected hunks)
+@@ -25,6 +25,7 @@ <h2>{{ domain.domain_name }}</h2>
+                         <p><strong>Is Active:</strong> {{ domain.is_active }}</p>
+                         <p><strong>Has Login Page:</strong> {{ domain.has_login_page }}</p>
+                         <p><strong>Urlscan UUID:</strong> {{ domain.urlscan_uuid or 'None' }}</p>
++                        <p><strong>Source:</strong> {{ domain.source or 'Manual' }}</p>
+                     </div>
+                 </div>
+
+@@ -34,6 +35,28 @@ <h2>{{ domain.domain_name }}</h2>
+                     </div>
+                 {% endif %}
+
++                {% if domain.urlscan_uuid and not domain.screenshot_link %}
++                    <div class="mt-3">
++                        <strong>Urlscan Report Link:</strong> <a href="https://urlscan.io/result/{{ domain.urlscan_uuid }}/" target="_blank">https://urlscan.io/result/{{ domain.urlscan_uuid }}/</a>
++                    </div>
++                {% endif %}
++
++                {% if hold_integrity_info %}
++                <hr>
++                <h5>Hold Integrity Data</h5>
++                <div class="row">
++                     <div class="col-md-12">
++                        {% if hold_integrity_info.get('discovery') %}
++                            <p><strong>Discovery Status:</strong> {{ hold_integrity_info.get('discovery', {}).get('status', 'Unknown') }}</p>
++                            <p><strong>Discovery Timestamp:</strong> {{ hold_integrity_info.get('discovery', {}).get('timestamp', 'Unknown') }}</p>
++                        {% endif %}
++
++                        {# Generic display of available keys #}
++                        <pre>{{ hold_integrity_info | tojson(indent=2) }}</pre>
++                     </div>
++                </div>
++                {% endif %}
++
+                 {% if domain.screenshots %}
+                     <div class="mt-4">
+                         <h5>Screenshots</h5>
+@@ -42,9 +65,28 @@ <h5>Screenshots</h5>
+                         {% set latest = domain.screenshots[0] %}
+                         <div class="mb-3">
+                             <p><strong>Latest Scan:</strong> {{ latest.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+-                            <a href="{{ url_for('static', filename='screenshots/' + latest.image_filename) }}" target="_blank">
++                            <a href="#" data-bs-toggle="modal" data-bs-target="#screenshotModal{{ latest.id }}">
+                                 <img src="{{ url_for('static', filename='screenshots/' + latest.image_filename) }}" class="img-fluid img-thumbnail" style="max-height: 400px;" alt="Domain Screenshot">
+                             </a>
++
++                            <!-- Modal -->
++                            <div class="modal fade" id="screenshotModal{{ latest.id }}" tabindex="-1" aria-labelledby="screenshotModalLabel{{ latest.id }}" aria-hidden="true">
++                                <div class="modal-dialog modal-xl">
++                                    <div class="modal-content">
++                                        <div class="modal-header">
++                                            <h5 class="modal-title" id="screenshotModalLabel{{ latest.id }}">Screenshot - {{ latest.created_at.strftime('%Y-%m-%d %H:%M') }}</h5>
++                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++                                        </div>
++                                        <div class="modal-body text-center">
++                                            <img src="{{ url_for('static', filename='screenshots/' + latest.image_filename) }}" class="img-fluid" alt="Full Screenshot">
++                                        </div>
++                                        <div class="modal-footer">
++                                            <a href="https://urlscan.io/result/{{ latest.urlscan_uuid }}/" target="_blank" class="btn btn-primary">View on Urlscan.io</a>
++                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
++                                        </div>
++                                    </div>
++                                </div>
++                            </div>
+                         </div>
+
+                         <!-- History -->
+@@ -59,12 +101,31 @@ <h5>Screenshots</h5>
+                                     <ul class="list-group list-group-flush">
+                                         {% for shot in domain.screenshots[1:] %}
+                                             <li class="list-group-item">
+-                                                <a href="{{ url_for('static', filename='screenshots/' + shot.image_filename) }}" target="_blank">
++                                                <a href="#" data-bs-toggle="modal" data-bs-target="#screenshotModal{{ shot.id }}">
+                                                     {{ shot.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                                 </a>
+                                                 {% if shot.urlscan_uuid %}
+                                                     <small class="text-muted ms-2">(UUID: {{ shot.urlscan_uuid }})</small>
+                                                 {% endif %}
++
++                                                <!-- History Modal -->
++                                                <div class="modal fade" id="screenshotModal{{ shot.id }}" tabindex="-1" aria-labelledby="screenshotModalLabel{{ shot.id }}" aria-hidden="true">
++                                                    <div class="modal-dialog modal-xl">
++                                                        <div class="modal-content">
++                                                            <div class="modal-header">
++                                                                <h5 class="modal-title" id="screenshotModalLabel{{ shot.id }}">History: {{ shot.created_at.strftime('%Y-%m-%d %H:%M') }}</h5>
++                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++                                                            </div>
++                                                            <div class="modal-body text-center">
++                                                                <img src="{{ url_for('static', filename='screenshots/' + shot.image_filename) }}" class="img-fluid" alt="Historical Screenshot">
++                                                            </div>
++                                                            <div class="modal-footer">
++                                                                <a href="https://urlscan.io/result/{{ shot.urlscan_uuid }}/" target="_blank" class="btn btn-primary">View on Urlscan.io</a>
++                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
++                                                            </div>
++                                                        </div>
++                                                    </div>
++                                                </div>
+                                             </li>
+                                         {% endfor %}
+                                     </ul>

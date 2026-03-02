@@ -1,0 +1,16 @@
+diff a/app/templates/index.html b/app/templates/index.html	(rejected hunks)
+@@ -51,6 +51,14 @@
+             <h2>Tracked Domains</h2>
+             <div>
+                 <a href="{{ url_for('add_domain') }}" class="btn btn-primary me-2">Add Domain</a>
++
++                {% if current_user.is_admin %}
++                <form action="{{ url_for('sync_hold_integrity') }}" method="POST" class="d-inline-block me-2">
++                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
++                    <button type="submit" class="btn btn-outline-success">Sync Hold Integrity</button>
++                </form>
++                {% endif %}
++
+                 <button type="submit" form="bulk-delete-form" class="btn btn-info me-2" formaction="{{ url_for('enrich_domains') }}">Enrich/Refresh</button>
+                 <button type="submit" form="bulk-delete-form" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete selected domains?')">Delete Selected</button>
+             </div>
