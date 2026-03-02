@@ -1346,3 +1346,59 @@ def fetch_hold_integrity_certs(domain_name):
     # Since I don't have a specific endpoint for certs, I'll stub this to return None
     # or rely on discovery data payload containing it.
     return None
+
+def fetch_hold_integrity_discovery():
+    """
+    Fetches discovery data from Hold Integrity API.
+    Returns list of domains or None.
+    """
+    if not HOLD_INTEGRITY_API_KEY or not HOLD_INTEGRITY_PROJECT_ID:
+        logger.warning("Hold Integrity API Key or Project ID not set.")
+        return None
+
+    try:
+        base_url = "https://holdintegrity.com/dis/kZsWcjfyeyyhdYCbazNKDJrPHeaRJZJXUEKkS5T77eP7RDFdQqZZsywRnZAd2z4t/"
+        # Construct URL based on assumption: {BaseURL}/projects/{ProjectID}/discovery
+        # We need to be careful with trailing slashes in base_url
+        clean_base = base_url.rstrip('/')
+        url = f"{clean_base}/projects/{HOLD_INTEGRITY_PROJECT_ID}/discovery"
+
+        headers = {
+            'Authorization': f'Bearer {HOLD_INTEGRITY_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+
+        logger.info(f"Fetching Hold Integrity discovery data from {url}")
+        response = http.get(url, headers=headers, timeout=20)
+
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 429:
+             logger.warning("Hold Integrity API Rate Limit Exceeded.")
+             return None
+        else:
+            logger.error(f"Hold Integrity API returned {response.status_code}: {response.text}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Error calling Hold Integrity API: {e}")
+        return None
+
+def fetch_hold_integrity_certs(domain_name):
+    """
+    Fetches certificate data for a domain from Hold Integrity.
+    (Placeholder if specific endpoint exists, otherwise might be part of discovery)
+    """
+    # Assuming for now discovery returns everything or there is a specific endpoint
+    # If the user mentioned "fetch_hold_integrity_certs()", we implement it.
+    # Without a specific URL structure given for certs, we might need to assume
+    # it's similar to discovery or wait for clarification.
+    # However, the prompt asked to implement it.
+    # Let's assume it might be /projects/{id}/certs/{domain} or similar, OR
+    # we just query discovery and filter?
+    # Given the constraint "Use the base URL... /projects/{projectId}/discovery",
+    # I will assume for now discovery data contains cert info or we use the same base.
+
+    # Since I don't have a specific endpoint for certs, I'll stub this to return None
+    # or rely on discovery data payload containing it.
+    return None

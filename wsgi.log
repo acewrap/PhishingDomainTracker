@@ -1,0 +1,173 @@
+ * Serving Flask app 'app.app'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:43:11] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:43:55] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:44:58] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:45:54] "GET /login HTTP/1.1" 200 -
+ERROR:app.app:Exception on /login [POST]
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such table: user
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 1455, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 869, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 867, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 852, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/auth/routes.py", line 20, in login
+    user = User.query.filter_by(username=form.username.data).first()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+    return self.limit(1)._iter().first()  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2249, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: user
+[SQL: SELECT user.id AS user_id, user.username AS user_username, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.last_login_at AS user_last_login_at, user.failed_login_attempts AS user_failed_login_attempts, user.password_expired AS user_password_expired, user.is_admin AS user_is_admin
+FROM user
+WHERE user.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:45:54] "[35m[1mPOST /login HTTP/1.1[0m" 500 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:46:12] "GET /login HTTP/1.1" 200 -
+ERROR:app.app:Exception on /login [POST]
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such table: user
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 1455, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 869, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 867, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/flask/app.py", line 852, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/auth/routes.py", line 20, in login
+    user = User.query.filter_by(username=form.username.data).first()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+    return self.limit(1)._iter().first()  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2249, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: user
+[SQL: SELECT user.id AS user_id, user.username AS user_username, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.last_login_at AS user_last_login_at, user.failed_login_attempts AS user_failed_login_attempts, user.password_expired AS user_password_expired, user.is_admin AS user_is_admin
+FROM user
+WHERE user.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:46:12] "[35m[1mPOST /login HTTP/1.1[0m" 500 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:47:12] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<12>1 2026-03-02T18:47:12Z devbox PhishingDomainTracker 9001 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Password Failure", "timestamp_utc": "2026-03-02T18:47:12Z", "failed_attempts": 1}
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:47:12] "POST /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:47:31] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<12>1 2026-03-02T18:47:31Z devbox PhishingDomainTracker 9001 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Password Failure", "timestamp_utc": "2026-03-02T18:47:31Z", "failed_attempts": 2}
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:47:31] "POST /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:02] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-03-02T18:48:02Z devbox PhishingDomainTracker 9001 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-03-02T18:48:02Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiOTExZDdmOWM1OWMxZTNkMTNiMDU5NjJmYzU3M2M5ZDZmYjEwNjRlZSJ9.aaXbYg.MkWCmc_3vi2LJOKe2RUztZ4gyKQ"}
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:02] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:02] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:02] "GET /domain/1 HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:21] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-03-02T18:48:21Z devbox PhishingDomainTracker 9001 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-03-02T18:48:21Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiZTgyNmI4Y2MwYTE1MDI3MTI5YzBkYzNjMDU0NTI4ZWQ3MjU0NTBkZiJ9.aaXbdQ.EvJ9Uq59NxcS_se4rzhsUrlmRaQ"}
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:21] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:21] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:48] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-03-02T18:48:49Z devbox PhishingDomainTracker 9001 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-03-02T18:48:49Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiNjEwNzQ0N2E3MmFlYWY3ZjAxOTdkOGFlZjNkOGE0NDMzNDFmNTU5YyJ9.aaXbkA.QTQFPg_D7Ygu2vW7JkfNGhR5y6w"}
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:49] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:49] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:48:49] "GET /domain/1 HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:49:09] "GET /login HTTP/1.1" 200 -
+INFO:syslog_logger:<14>1 2026-03-02T18:49:09Z devbox PhishingDomainTracker 9001 - - {"User": "admin", "IP Address": "127.0.0.1", "Phishing Domain": "N/A", "Action Taken": "Login", "timestamp_utc": "2026-03-02T18:49:09Z", "is_admin": true, "session_id": "eyJjc3JmX3Rva2VuIjoiNTBjMmM4OTAwYmI1MDIxZmYyYzMxMjY3NmJhODA2ZTA5N2MzYjVhNCJ9.aaXbpQ.skANWy0XXX5ZBcMZYqtTxkH2BNQ"}
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:49:09] "[32mPOST /login HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:49:09] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [02/Mar/2026 18:49:09] "GET /domain/1 HTTP/1.1" 200 -
