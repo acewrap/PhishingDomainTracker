@@ -114,9 +114,9 @@ adapter = HTTPAdapter(max_retries=retry_strategy)
 http = requests.Session()
 http.mount("https://", adapter)
 http.mount("http://", adapter)
-# Set User-Agent to mimic a browser to avoid being blocked
+# Set Mobile User-Agent to evade basic scanners
 http.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
 })
 
 WHOISXML_API_KEY = os.environ.get('WHOISXML_API_KEY')
@@ -181,6 +181,43 @@ FOR_SALE_KEYWORDS = [
     "domainagents",
     "this domain name is registered"
 ]
+
+def get_subdomains_to_check():
+    from app.models import SubdomainToCheck
+    try:
+        subdomains = [s.subdomain for s in SubdomainToCheck.query.all()]
+        if not subdomains:
+            return ['']
+        return subdomains
+    except Exception as e:
+        logger.warning(f"Error fetching SubdomainsToCheck: {e}")
+        return ['']
+
+def get_paths_to_check():
+    from app.models import PathToCheck
+    try:
+        paths = [p.path for p in PathToCheck.query.all()]
+        if not paths:
+            return ['/']
+        return paths
+    except Exception as e:
+        logger.warning(f"Error fetching PathsToCheck: {e}")
+        return ['/']
+
+def check_dns_anomaly(domain_obj):
+    """
+    Checks if the domain resolves to an evasion IP like 127.0.0.1 or 0.0.0.0.
+    Returns True if anomalous, False otherwise.
+    """
+    ip = domain_obj.ip_address
+    if not ip:
+        try:
+            ip = socket.gethostbyname(domain_obj.domain_name)
+        except Exception:
+            pass
+    if ip in ['127.0.0.1', '0.0.0.0']:
+        return True
+    return False
 
 def get_blue_domains():
     global _BLUE_DOMAINS_CACHE, _BLUE_DOMAINS_CACHE_TIMESTAMP
@@ -279,17 +316,24 @@ def scan_page_content(html_content, base_url=None):
                     compiled_regex = get_compiled_regex(keyword)
                     if compiled_regex.search(text):
                         logger.info(f"Found keyword in {source_name}: {keyword}")
-                        return True
-                return False
+                        return keyword
+                return None
 
             # 1. Check visible text
-            if check_keywords(text_content, "visible text"):
+            matched_keyword = check_keywords(text_content, "visible text")
+            if matched_keyword:
                 result['is_login'] = True
+                result['matched_keyword'] = matched_keyword
+
             # 2. Check raw HTML (for hidden fields, attributes, inline scripts)
-            elif check_keywords(html_content, "raw HTML"):
-                result['is_login'] = True
+            if not result['is_login']:
+                matched_keyword = check_keywords(html_content, "raw HTML")
+                if matched_keyword:
+                    result['is_login'] = True
+                    result['matched_keyword'] = matched_keyword
+
             # 3. Fetch and check external scripts
-            elif base_url:
+            if not result['is_login'] and base_url:
                 scripts = soup.find_all('script', src=True)
                 for script in scripts:
                     script_src = script.get('src')
@@ -302,8 +346,10 @@ def scan_page_content(html_content, base_url=None):
                         # Use a short timeout for scripts
                         resp = http.get(script_url, timeout=5, verify=False)
                         if resp.status_code == 200:
-                            if check_keywords(resp.text, f"external script {script_url}"):
+                            matched_keyword = check_keywords(resp.text, f"external script {script_url}")
+                            if matched_keyword:
                                 result['is_login'] = True
+                                result['matched_keyword'] = matched_keyword
                                 break
                     except Exception as e:
                         logger.warning(f"Failed to fetch/analyze script {script_url}: {e}")
@@ -415,22 +461,51 @@ def check_ns_record(domain_name):
 
 def fetch_and_check_domain(domain_name):
     """
-    Fetches the domain content (trying https then http) and checks for login indicators and blue links.
-    Returns scan result dict or None if fetch failed.
+    Fetches the domain content across multiple subdomains and paths (trying https then http).
+    Checks for login indicators and blue links.
+    Returns scan result dict with 'url' where threat was found, or None if fetch failed/no threat.
     """
     protocols = ['https://', 'http://']
+    subdomains = get_subdomains_to_check()
+    paths = get_paths_to_check()
 
-    for protocol in protocols:
-        url = f"{protocol}{domain_name}"
-        try:
-            logger.info(f"Fetching {url}...")
-            # verify=False to handle self-signed certs potentially
-            response = http.get(url, timeout=10, verify=False)
-            if response.status_code == 200:
-                return scan_page_content(response.text, base_url=response.url)
-        except requests.RequestException as e:
-            logger.warning(f"Failed to fetch {url}: {e}")
-            continue
+    # Track if we successfully reached any page to determine if site is active
+    found_active = False
+
+    for subdomain in subdomains:
+        # Construct hostname
+        hostname = f"{subdomain}.{domain_name}" if subdomain else domain_name
+
+        for protocol in protocols:
+            for path in paths:
+                # Ensure path starts with /
+                clean_path = path if path.startswith('/') else '/' + path
+                url = f"{protocol}{hostname}{clean_path}"
+
+                try:
+                    logger.info(f"Fetching {url}...")
+                    response = http.get(url, timeout=10, verify=False)
+
+                    if response.status_code == 200:
+                        found_active = True
+                        scan_res = scan_page_content(response.text, base_url=response.url)
+                        # We found something interesting
+                        if scan_res.get('is_login') or scan_res.get('blue_links') or scan_res.get('is_for_sale'):
+                            scan_res['threat_url'] = response.url
+                            return scan_res
+
+                    elif response.status_code in [401, 403]:
+                        logger.info(f"Received {response.status_code} at {url}, continuing to check other paths.")
+                        # Do not set found_active = True here as requested in review,
+                        # if all paths are 401/403, we should consider it inactive.
+
+                except requests.RequestException as e:
+                    logger.debug(f"Failed to fetch {url}: {e}")
+                    continue
+
+    # If we didn't find any threats but the site is active on some path, we return that it's active
+    if found_active:
+         return {'is_login': False, 'blue_links': [], 'scripts': [], 'stylesheets': [], 'favicon_url': None, 'is_for_sale': False, 'threat_url': None}
 
     return None
 
@@ -655,15 +730,49 @@ def enrich_domain(domain_obj, user_id=None):
     else:
         logger.warning("URLSCAN_API_KEY not set. Skipping Urlscan enrichment.")
         
-    # 3. Check for login page indicators and blue links
+    # 3. Check for DNS anomaly
+    domain_obj.is_evasive = check_dns_anomaly(domain_obj)
+    if domain_obj.is_evasive:
+        ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        new_note = f"[{ts}] Evasion detected: Domain resolves to loopback/evasion IP."
+        if not domain_obj.action_taken or new_note not in domain_obj.action_taken:
+            if domain_obj.action_taken:
+                domain_obj.action_taken += f"\n{new_note}"
+            else:
+                domain_obj.action_taken = new_note
+        logger.warning(f"Evasion detected for {domain_obj.domain_name}")
+
+    # 4. Check for login page indicators and blue links
     scan_result = fetch_and_check_domain(domain_obj.domain_name)
     if scan_result:
         # If we successfully fetched the domain, mark it as active
         domain_obj.is_active = True
 
+        threat_url = scan_result.get('threat_url', f"http://{domain_obj.domain_name}")
+
         if scan_result.get('is_login'):
             logger.info(f"Login page detected for {domain_obj.domain_name}")
             domain_obj.has_login_page = True
+
+            # Log action taken if we matched a keyword
+            matched_keyword = scan_result.get('matched_keyword')
+            ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            if matched_keyword:
+                new_note = f"[{ts}] Threat term '{matched_keyword}' found at {threat_url}"
+            else:
+                new_note = f"[{ts}] Phishing indicators (login fields) found at {threat_url}"
+
+            if not domain_obj.action_taken or new_note not in domain_obj.action_taken:
+                if domain_obj.action_taken:
+                    domain_obj.action_taken += f"\n{new_note}"
+                else:
+                    domain_obj.action_taken = new_note
+
+            # Move category to Red (or higher if already higher)
+            is_already_high = domain_obj.manual_status in ['Confirmed Phish', 'Takedown Requested', 'Internal/Pentest', 'Allowlisted']
+            if not is_already_high:
+                 domain_obj.manual_status = 'Potential Phish' # Maps to Red
+
         else:
             logger.info(f"No login page detected for {domain_obj.domain_name}")
             domain_obj.has_login_page = False

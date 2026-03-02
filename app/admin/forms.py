@@ -26,6 +26,14 @@ class ParkingNameserverForm(FlaskForm):
     ns = StringField('Parking Nameserver', validators=[DataRequired()])
     submit = SubmitField('Add Nameserver')
 
+class SubdomainToCheckForm(FlaskForm):
+    subdomain = StringField('Subdomain', validators=[DataRequired()])
+    submit = SubmitField('Add Subdomain')
+
+class PathToCheckForm(FlaskForm):
+    path = StringField('Path', validators=[DataRequired()])
+    submit = SubmitField('Add Path')
+
 from wtforms import IntegerField
 
 class ScheduleConfigForm(FlaskForm):

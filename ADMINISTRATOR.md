@@ -49,6 +49,13 @@ Navigate to **Admin > Evidence Storage** to view all submitted emails.
 
 These terms are used by the automated scheduler and enrichment process to scan domain content. If a match is found on a non-allowlisted domain, it may be flagged as 'Red'.
 
+## Evasion Check Configuration
+Admins can manage a list of subdomains (e.g., "gopublic", "login") and paths (e.g., "/login", "/auth") that the application will scan when checking a domain. This helps identify hidden phishing infrastructure that may reside outside the root domain or path. The system also checks if the domain resolves to an evasion IP (e.g., `127.0.0.1`) and flags the domain on the dashboard if an anomaly is detected.
+
+1. Navigate to **Admin > Evasion Check Config**.
+2. **Add Subdomain/Path:** Enter a subdomain or path to check during the scanning process.
+3. **Delete:** Remove obsolete terms.
+
 ## Parking Nameservers Management
 1. Navigate to **Admin > Parking Nameservers**.
 2. **Add Nameserver:** Enter a known parking nameserver (e.g., "dccdns.com", "sedoparking.com").

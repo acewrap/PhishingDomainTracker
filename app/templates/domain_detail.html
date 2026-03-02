@@ -3,7 +3,12 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8">
-        <h2>{{ domain.domain_name }}</h2>
+        <h2>
+            {{ domain.domain_name }}
+            {% if domain.is_evasive %}
+            <span class="badge bg-danger ms-2 fs-6">Evasion Attempt Detected</span>
+            {% endif %}
+        </h2>
         <p class="text-muted">Entered on: {{ domain.date_entered.strftime('%Y-%m-%d %H:%M') }}</p>
         
         <div class="card mb-4">

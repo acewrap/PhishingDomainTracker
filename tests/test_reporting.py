@@ -15,7 +15,9 @@ class ReportingTestCase(unittest.TestCase):
         with app.app_context():
             db.create_all()
             hashed = bcrypt.generate_password_hash('correctpassword').decode('utf-8')
-            user = User(username='testuser', password_hash=hashed)
+            user = User.query.filter_by(username="testuser").first()
+            if not user:
+                user = User(username="testuser", password_hash=hashed)
             db.session.add(user)
             db.session.commit()
 
