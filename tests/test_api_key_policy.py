@@ -14,7 +14,9 @@ class APIKeyPolicyTestCase(unittest.TestCase):
         with app.app_context():
             db.create_all()
             hashed = bcrypt.generate_password_hash('testuser').decode('utf-8')
-            self.user = User(username='testuser', password_hash=hashed)
+            self.user = User.query.filter_by(username="testuser").first()
+            if not self.user:
+                self.user = User(username="testuser", password_hash=hashed)
             db.session.add(self.user)
             db.session.commit()
             self.user_id = self.user.id

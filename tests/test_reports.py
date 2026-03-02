@@ -13,9 +13,13 @@ class ReportsTestCase(unittest.TestCase):
             db.create_all()
             # Create user and login
             hashed = bcrypt.generate_password_hash('testuser').decode('utf-8')
-            user = User(username='testuser', password_hash=hashed)
-            db.session.add(user)
-            db.session.commit()
+            user = User.query.filter_by(username='testuser').first()
+            if not user:
+                user = User.query.filter_by(username="testuser").first()
+            if not user:
+                user = User(username="testuser", password_hash=hashed)
+                db.session.add(user)
+                db.session.commit()
 
         self.app.post('/login', data=dict(
             username='testuser',

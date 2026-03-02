@@ -65,6 +65,9 @@ class PhishingDomain(db.Model):
     source = db.Column(db.String(50), nullable=True)  # e.g., 'Manual', 'Hold Integrity'
     hold_integrity_data = db.Column(db.Text, nullable=True) # JSON blob for discovery/certs
 
+    # Evasion Detection
+    is_evasive = db.Column(db.Boolean, default=False)
+
     @property
     def threat_status(self):
         # 1. Manual Overrides (High Priority)
@@ -176,3 +179,17 @@ class ScheduleConfig(db.Model):
 
     def __repr__(self):
         return f'<ScheduleConfig {self.category} -> {self.interval_minutes}m>'
+
+class SubdomainToCheck(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    subdomain = db.Column(db.String(255), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'<SubdomainToCheck {self.subdomain}>'
+
+class PathToCheck(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    path = db.Column(db.String(255), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f'<PathToCheck {self.path}>'

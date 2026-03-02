@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Evasion Check Configuration</h2>
+        <p class="text-muted">Manage the list of subdomains and paths used to discover hidden phishing infrastructure.</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Subdomains -->
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Subdomains to Check</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.evasion_config') }}">
+                    {{ subdomain_form.hidden_tag() }}
+                    <div class="input-group mb-3">
+                        {{ subdomain_form.subdomain(class="form-control", placeholder="e.g., gopublic") }}
+                        <button class="btn btn-outline-primary" type="submit" name="add_subdomain">Add Subdomain</button>
+                    </div>
+                </form>
+
+                <ul class="list-group list-group-flush mt-3">
+                    {% for s in subdomains %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {% if s.subdomain == '' %}
+                        <em>(Root Domain)</em>
+                        {% else %}
+                        {{ s.subdomain }}
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('admin.delete_subdomain', id=s.id) }}" class="d-inline" onsubmit="return confirm('Delete this subdomain?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted">No subdomains configured. Only the root will be checked.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paths -->
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Paths to Check</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.evasion_config') }}">
+                    {{ path_form.hidden_tag() }}
+                    <div class="input-group mb-3">
+                        {{ path_form.path(class="form-control", placeholder="e.g., /login") }}
+                        <button class="btn btn-outline-primary" type="submit" name="add_path">Add Path</button>
+                    </div>
+                </form>
+
+                <ul class="list-group list-group-flush mt-3">
+                    {% for p in paths %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ p.path }}
+                        <form method="POST" action="{{ url_for('admin.delete_path', id=p.id) }}" class="d-inline" onsubmit="return confirm('Delete this path?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted">No paths configured. Only the root '/' will be checked.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

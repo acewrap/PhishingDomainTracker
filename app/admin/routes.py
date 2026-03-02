@@ -6,10 +6,10 @@ from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required, current_user
 from app.admin import admin_bp
-from app.models import User, APIKey, PhishingDomain, ThreatTerm, ParkingNameserver, EmailEvidence, EvidenceCorrelation, ScheduleConfig
+from app.models import User, APIKey, PhishingDomain, ThreatTerm, ParkingNameserver, EmailEvidence, EvidenceCorrelation, ScheduleConfig, SubdomainToCheck, PathToCheck
 from app.extensions import db, bcrypt
 from app.utils import admin_required, log_security_event, enrich_domain
-from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm, ParkingNameserverForm, ScheduleConfigForm
+from app.admin.forms import CSVUploadForm, RestoreForm, ThreatTermForm, ParkingNameserverForm, ScheduleConfigForm, SubdomainToCheckForm, PathToCheckForm
 from app.scheduler import update_scheduler_jobs
 from flask import current_app
 from app.backup_service import generate_backup_data, perform_restore
@@ -324,6 +324,69 @@ def import_csv():
             flash(f'Database error during import: {e}', 'danger')
 
     return render_template('admin/import_csv.html', form=form)
+
+@admin_bp.route('/evasion-config', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def evasion_config():
+    subdomain_form = SubdomainToCheckForm()
+    path_form = PathToCheckForm()
+
+    if 'add_subdomain' in request.form and subdomain_form.validate_on_submit():
+        subdomain = subdomain_form.subdomain.data.strip()
+        if not SubdomainToCheck.query.filter_by(subdomain=subdomain).first():
+            try:
+                db.session.add(SubdomainToCheck(subdomain=subdomain))
+                db.session.commit()
+                flash(f'Subdomain "{subdomain}" added.', 'success')
+                log_security_event('Subdomain Added', current_user.username, request.remote_addr, 'info', subdomain=subdomain)
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error adding subdomain: {e}', 'danger')
+        else:
+            flash(f'Subdomain "{subdomain}" already exists.', 'warning')
+        return redirect(url_for('admin.evasion_config'))
+
+    if 'add_path' in request.form and path_form.validate_on_submit():
+        path = path_form.path.data.strip()
+        if not path.startswith('/'):
+            path = '/' + path
+        if not PathToCheck.query.filter_by(path=path).first():
+            try:
+                db.session.add(PathToCheck(path=path))
+                db.session.commit()
+                flash(f'Path "{path}" added.', 'success')
+                log_security_event('Path Added', current_user.username, request.remote_addr, 'info', path=path)
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error adding path: {e}', 'danger')
+        else:
+            flash(f'Path "{path}" already exists.', 'warning')
+        return redirect(url_for('admin.evasion_config'))
+
+    subdomains = SubdomainToCheck.query.all()
+    paths = PathToCheck.query.all()
+    return render_template('admin/evasion_config.html', subdomain_form=subdomain_form, path_form=path_form, subdomains=subdomains, paths=paths)
+
+@admin_bp.route('/evasion-config/delete-subdomain/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_subdomain(id):
+    subdomain = SubdomainToCheck.query.get_or_404(id)
+    db.session.delete(subdomain)
+    db.session.commit()
+    flash(f'Subdomain "{subdomain.subdomain}" deleted.', 'success')
+    return redirect(url_for('admin.evasion_config'))
+
+@admin_bp.route('/evasion-config/delete-path/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_path(id):
+    path = PathToCheck.query.get_or_404(id)
+    db.session.delete(path)
+    db.session.commit()
+    flash(f'Path "{path.path}" deleted.', 'success')
+    return redirect(url_for('admin.evasion_config'))
 
 @admin_bp.route('/schedule-editor', methods=['GET', 'POST'])
 @login_required
